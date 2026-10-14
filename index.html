@@ -525,7 +525,7 @@ function importPDF(event){
    })).filter(it=>it.str).sort((a,b)=>b.y-a.y||a.x-b.x);
    const rows=[];
    for(const frag of fragments){
-    let row=rows.find(r=>Math.abs(r.y-frag.y)<3);
+    let row=rows.find(r=>Math.abs(r.y-frag.y)<8);
     if(!row){row={y:frag.y,items:[]};rows.push(row);}
     row.items.push(frag);
    }
@@ -551,11 +551,16 @@ function importPDF(event){
   };
   const records=[];let current=null;
   for(const line of allLines){
-   const dm=line.match(datePattern);
-   if(dm){if(current)records.push(current);current={dateRaw:dm[1],lines:[]};if(dm[2])current.lines.push(dm[2]);continue;}
-   // Some PDFs place the date in one fragment and the rest of the same row in the next.
-   const dateAtStart=line.match(/^(\d{1,2}\s+[\p{L}.]+\s+\d{4}|\d{1,2}[./-]\d{1,2}[./-]\d{4})\s*(.*)$/u);
-   if(dateAtStart){if(current)records.push(current);current={dateRaw:dateAtStart[1],lines:[]};if(dateAtStart[2])current.lines.push(dateAtStart[2]);continue;}
+   // Search for the date anywhere in the visual row. PDF.js may split or prepend
+   // table labels to date fragments, so an anchored match is too strict for Erste statements.
+   const dm=line.match(/(\d{1,2}\s+[\p{L}.]+\s+\d{4}|\d{1,2}[./-]\d{1,2}[./-]\d{4})/u);
+   if(dm){
+    if(current)records.push(current);
+    current={dateRaw:dm[1],lines:[]};
+    const tail=(line.slice(dm.index+dm[0].length)||'').trim();
+    if(tail)current.lines.push(tail);
+    continue;
+   }
    if(current)current.lines.push(line);
   }
   if(current)records.push(current);
