@@ -122,6 +122,91 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:#8976ff;box-sh
  *,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
 }
 
+
+
+/* Ambient Motion: lightweight CSS-only visual layer */
+:root{
+ --bg:#080a12;
+ --panel:rgba(17,20,34,.88);
+ --panel2:rgba(25,29,47,.82);
+ --line:rgba(155,165,220,.16);
+ --accent:#a99bff;
+ --ambient-blue:rgba(64,92,190,.18);
+ --ambient-violet:rgba(135,76,220,.17);
+}
+html{background:#080a12;min-height:100%;}
+body{
+ position:relative;
+ isolation:isolate;
+ background:transparent;
+}
+body::before{
+ content:"";
+ position:fixed;
+ z-index:-1;
+ inset:-24%;
+ pointer-events:none;
+ background:
+  radial-gradient(ellipse at 18% 18%,var(--ambient-violet),transparent 42%),
+  radial-gradient(ellipse at 82% 30%,var(--ambient-blue),transparent 40%),
+  radial-gradient(ellipse at 52% 88%,rgba(40,115,145,.11),transparent 43%),
+  linear-gradient(145deg,#080a12 0%,#0b0d18 48%,#090b13 100%);
+ background-size:135% 135%,145% 145%,150% 150%,100% 100%;
+ background-position:0% 0%,100% 0%,50% 100%,center;
+ animation:fintrack-ambient-drift 24s ease-in-out infinite alternate;
+ will-change:background-position;
+}
+@keyframes fintrack-ambient-drift{
+ 0%{background-position:0% 0%,100% 0%,50% 100%,center;}
+ 50%{background-position:14% 10%,84% 16%,43% 82%,center;}
+ 100%{background-position:5% 17%,93% 5%,60% 90%,center;}
+}
+.card,.metric,.transaction,.advisor-card,.goal-card,.modal-content{
+ border-color:var(--line);
+ box-shadow:0 10px 32px rgba(0,0,0,.12),inset 0 1px 0 rgba(255,255,255,.018);
+}
+.card{
+ background:linear-gradient(145deg,rgba(19,22,38,.91),rgba(12,15,26,.87));
+ backdrop-filter:blur(12px);
+ -webkit-backdrop-filter:blur(12px);
+}
+button,.small-button,nav button,[role="button"]{
+ transition:transform .16s ease,background-color .2s ease,border-color .2s ease,box-shadow .2s ease,color .2s ease;
+ -webkit-tap-highlight-color:transparent;
+}
+button:active,.small-button:active,nav button:active,[role="button"]:active{
+ transform:scale(.975);
+}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,summary:focus-visible{
+ outline:2px solid var(--accent);
+ outline-offset:3px;
+}
+button:hover,.small-button:hover{
+ border-color:rgba(169,155,255,.48);
+ box-shadow:0 0 18px rgba(126,103,255,.09);
+}
+nav button.active,nav button[aria-current="page"]{
+ box-shadow:0 0 24px rgba(126,103,255,.15),inset 0 1px 0 rgba(255,255,255,.05);
+}
+.bar{
+ transform-origin:bottom;
+ animation:fintrack-bar-in .65s cubic-bezier(.2,.7,.2,1) both;
+}
+@keyframes fintrack-bar-in{from{transform:scaleY(.12);opacity:.45}to{transform:scaleY(1);opacity:1}}
+.advisor-topic{border-color:var(--line);}
+.advisor-topic summary{transition:color .18s ease;}
+.advisor-topic[open] summary{color:var(--accent);}
+.transaction{animation:fintrack-fade-up .28s ease both;}
+@keyframes fintrack-fade-up{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
+@media(hover:hover){.card{transition:border-color .2s ease,box-shadow .2s ease}.card:hover{border-color:rgba(169,155,255,.22);box-shadow:0 14px 38px rgba(0,0,0,.17),0 0 24px rgba(107,91,220,.035)}}
+@media(max-width:480px){
+ body::before{inset:-12%;background-size:120% 120%,125% 125%,130% 130%,100% 100%;}
+ .card{backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);}
+}
+@media(prefers-reduced-motion:reduce){
+ *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important;transition-duration:.01ms!important;}
+ body::before{animation:none;will-change:auto;}
+}
 </style>
 </head>
 <body>
