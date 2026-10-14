@@ -62,7 +62,7 @@ nav{position:fixed;z-index:5;bottom:0;left:0;right:0;padding:10px 18px calc(10px
  <input id="csvFile" class="hidden" type="file" accept=".csv,text/csv" onchange="importCSV(event)">
  <div class="filters"><select id="typeFilter" onchange="renderTransactions()"><option value="all">Все операции</option><option value="income">Доходы</option><option value="expense">Расходы</option></select><select id="monthFilter" onchange="renderTransactions()"><option value="all">Все даты</option></select></div>
  <div class="card" id="allList"></div>
- <p class="muted">Формат CSV зависит от банка. Импортёр понимает типичные колонки даты, описания и суммы; после импорта проверьте операции.</p>
+ <p class="muted">Формат CSV зависит от банка. Неизвестные описания сохраняются как есть в категории «Другое». Если в файле есть номер транзакции, он запоминается и повторно не импортируется; если номера нет, используется сочетание даты, типа, суммы и описания.</p>
 </section>
 
 <section id="analytics" class="view">
@@ -192,7 +192,7 @@ nav{position:fixed;z-index:5;bottom:0;left:0;right:0;padding:10px 18px calc(10px
  <div class="card">
   <div class="settings-row"><strong>Хранение</strong><p>Операции, цели и взносы хранятся локально в этом браузере на устройстве. Финансовый советник анализирует их в браузере и не отправляет данные внешним сервисам. Данные не синхронизируются между устройствами. Очистка данных браузера может удалить записи.</p></div>
   <div class="settings-row"><strong>Экспорт резервной копии</strong><p>Скачайте JSON-файл с операциями и сохраните его в надёжном месте.</p><button class="primary" onclick="exportData()">Экспортировать данные</button></div>
-  <div class="settings-row"><strong>Импорт банковской выписки</strong><p>Выберите CSV-файл, экспортированный из интернет-банка. Данные обрабатываются локально в браузере.</p><button onclick="document.getElementById('csvFile').click()">Выбрать CSV</button></div>
+  <div class="settings-row"><strong>Импорт банковской выписки</strong><p>Выберите CSV-файл из интернет-банка. Оригинальные описания, переводы и операции с наличными сохраняются как есть в категории «Другое». Повторный импорт проверяется по номеру транзакции, а если его нет — по дате, типу, сумме и описанию. Всё обрабатывается локально в браузере.</p><button onclick="document.getElementById('csvFile').click()">Выбрать CSV</button></div>
   <div class="settings-row"><strong>Удаление данных</strong><p>Это действие нельзя отменить без резервной копии.</p><button class="danger" onclick="clearData()">Удалить все операции</button></div>
   <div class="settings-row"><strong>Автоматическая интеграция с банком</strong><p>Не подключена в этой версии. Нельзя безопасно получить банковские операции только по номеру карты. Потребуются согласие владельца счёта, совместимый провайдер и отдельная реализация авторизации.</p></div>
  </div>
@@ -422,23 +422,66 @@ function editTx(id){const t=transactions.find(t=>t.id===id);if(!t)return;editing
 function deleteTx(id){if(confirm('Удалить эту операцию?')){transactions=transactions.filter(t=>t.id!==id);saveData()}}
 function exportData(){const blob=new Blob([JSON.stringify({app:'FinTrack',version:2,exportedAt:new Date().toISOString(),transactions,goals,goalContributions},null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='fintrack-backup.json';a.click();URL.revokeObjectURL(a.href)}
 function clearData(){if(confirm('Удалить все операции? Сначала экспортируйте резервную копию, если она нужна.')){transactions=[];saveData()}}
+function normalizeTransactionRef(value){
+ return String(value??'').trim().replace(/\s+/g,' ').toLocaleLowerCase('pl-PL');
+}
+function transactionFingerprint(t){
+ return [String(t.date||''),String(t.type||''),Number(t.amount||0).toFixed(2),normalizeTransactionRef(t.description||'')].join('|');
+}
 function importCSV(event){
  const file=event.target.files?.[0];if(!file)return;const reader=new FileReader();
- reader.onload=()=>{try{const text=String(reader.result||'').replace(/^\uFEFF/,'');const lines=text.split(/\r?\n/).filter(x=>x.trim());if(lines.length<2)throw Error('Файл пуст или содержит только заголовок.');
- const delimiter=[',',';','\t'].sort((a,b)=>lines[0].split(b).length-lines[0].split(a).length)[0];
- const parse=line=>{let out=[],cur='',q=false;for(let i=0;i<line.length;i++){const c=line[i];if(c==='"'&&line[i+1]==='"'&&q){cur+='"';i++}else if(c==='"')q=!q;else if(c===delimiter&&!q){out.push(cur.trim());cur=''}else cur+=c}out.push(cur.trim());return out};
- const headers=parse(lines[0]).map(x=>x.toLowerCase());const find=terms=>headers.findIndex(h=>terms.some(t=>h.includes(t)));
- const dateI=find(['date','data','дата','booked']);const descI=find(['description','title','opis','tytuł','details','nazwa','опис']);const amountI=find(['amount','kwota','сумма','wartość']);const debitI=find(['debit','obciąż','wydatek']);const creditI=find(['credit','uznanie','wpływ']);
- if(dateI<0|| (amountI<0&&debitI<0&&creditI<0))throw Error('Не найдены колонки даты и суммы. Проверьте формат выписки.');
- let added=0;for(const line of lines.slice(1)){const row=parse(line);const dateRaw=(row[dateI]||'').trim();let date=dateRaw;if(/^\d{2}\.\d{2}\.\d{4}$/.test(date))date=date.split('.').reverse().join('-');else if(/^\d{4}\/\d{2}\/\d{2}$/.test(date))date=date.replaceAll('/','-');if(!/^\d{4}-\d{2}-\d{2}$/.test(date))continue;
- const parseNum=s=>{s=String(s||'').replace(/\s/g,'').replace(/[^\d,.-]/g,'');if(s.includes(',')&&s.includes('.'))s=s.lastIndexOf(',')>s.lastIndexOf('.')?s.replace(/\./g,'').replace(',','.'):s.replace(/,/g,'');else if(s.includes(','))s=s.replace(',','.');return Number(s)};
- let amount=0,type='expense';if(amountI>=0){amount=parseNum(row[amountI]);if(amount<0){type='expense';amount=Math.abs(amount)}else type='income'}else{const debit=parseNum(row[debitI]),credit=parseNum(row[creditI]);if(credit>0){amount=credit;type='income'}else{amount=Math.abs(debit);type='expense'}}
- if(!Number.isFinite(amount)||amount<=0)continue;const desc=descI>=0?row[descI]:'Импорт из выписки';transactions.push({id:crypto.randomUUID(),type,amount:Math.round(amount*100)/100,category:type==='income'?'Другое':'Другое',date,description:desc||'Операция из выписки'});added++}
- saveData();alert(`Импортировано операций: ${added}. Проверьте даты, суммы и категории.`);showView('transactions');
+ reader.onload=()=>{try{
+  const text=String(reader.result||'').replace(/^\uFEFF/,'');
+  const lines=text.split(/\r?\n/).filter(x=>x.trim());
+  if(lines.length<2)throw Error('Файл пуст или содержит только заголовок.');
+  const delimiter=[',',';','\t'].sort((a,b)=>lines[0].split(b).length-lines[0].split(a).length)[0];
+  const parse=line=>{let out=[],cur='',q=false;for(let i=0;i<line.length;i++){const c=line[i];if(c==='"'&&line[i+1]==='"'&&q){cur+='"';i++}else if(c==='"')q=!q;else if(c===delimiter&&!q){out.push(cur.trim());cur=''}else cur+=c}out.push(cur.trim());return out};
+  const headers=parse(lines[0]).map(x=>x.toLocaleLowerCase('pl-PL'));
+  const find=terms=>headers.findIndex(h=>terms.some(t=>h.includes(t)));
+  const dateI=find(['date','data','дата','booked','księgowania','ksiegowania']);
+  const descI=find(['description','title','opis','tytuł','tytul','details','nazwa','опис','counterparty','merchant']);
+  const amountI=find(['amount','kwota','сумма','wartość','wartosc','transaction amount']);
+  const debitI=find(['debit','obciąż','obciaz','wydatek','withdrawal']);
+  const creditI=find(['credit','uznanie','wpływ','wplyw','deposit']);
+  const refI=find(['transaction id','transaction number','transaction no','transaction reference','operation id','operation number','reference number','numer transakcji','nr transakcji','identyfikator transakcji','id transakcji','numer operacji','nr operacji','referencja','referencyjny','reference','ref.','trn id']);
+  if(dateI<0||(amountI<0&&debitI<0&&creditI<0))throw Error('Не найдены колонки даты и суммы. Проверьте формат выписки.');
+  // Existing imported bank references are permanent deduplication keys, even if a user later edits the description.
+  const knownRefs=new Set(transactions.map(t=>normalizeTransactionRef(t.bankTransactionId)).filter(Boolean));
+  const knownFingerprints=new Set(transactions.map(transactionFingerprint));
+  let added=0,duplicates=0,invalid=0;
+  const parseNum=s=>{s=String(s??'').replace(/[\s\u00a0]/g,'').replace(/[^\d,.-]/g,'');if(s.includes(',')&&s.includes('.'))s=s.lastIndexOf(',')>s.lastIndexOf('.')?s.replace(/\./g,'').replace(',','.'):s.replace(/,/g,'');else if(s.includes(','))s=s.replace(',','.');return Number(s)};
+  for(const line of lines.slice(1)){
+   const row=parse(line);const dateRaw=(row[dateI]||'').trim();let date=dateRaw;
+   if(/^\d{2}\.\d{2}\.\d{4}$/.test(date))date=date.split('.').reverse().join('-');
+   else if(/^\d{4}\/\d{2}\/\d{2}$/.test(date))date=date.replaceAll('/','-');
+   else if(/^\d{2}\/\d{2}\/\d{4}$/.test(date)){const parts=date.split('/');date=`${parts[2]}-${parts[1]}-${parts[0]}`;}
+   if(!/^\d{4}-\d{2}-\d{2}$/.test(date)){invalid++;continue;}
+   let amount=0,type='expense';
+   if(amountI>=0){const raw=String(row[amountI]??'').trim();amount=parseNum(raw);if(amount<0){type='expense';amount=Math.abs(amount)}else type='income'}
+   else {const debit=parseNum(row[debitI]),credit=parseNum(row[creditI]);if(Number.isFinite(credit)&&credit>0){amount=credit;type='income'}else{amount=Math.abs(debit);type='expense'}}
+   if(!Number.isFinite(amount)||amount<=0){invalid++;continue;}
+   // Keep the bank's original operation description, including transfers, ATM withdrawals and cash deposits.
+   const desc=descI>=0&&String(row[descI]??'').trim()?String(row[descI]).trim():'Операция из выписки';
+   const bankRef=refI>=0?String(row[refI]??'').trim():'';
+   const item={id:crypto.randomUUID(),type,amount:Math.round(amount*100)/100,category:'Другое',date,description:desc};
+   if(bankRef){
+    const refKey=normalizeTransactionRef(bankRef);
+    if(knownRefs.has(refKey)){duplicates++;continue;}
+    item.bankTransactionId=bankRef;knownRefs.add(refKey);
+   }else{
+    // If the statement has no transaction number, use a conservative date+type+amount+description fingerprint.
+    const fp=transactionFingerprint(item);
+    if(knownFingerprints.has(fp)){duplicates++;continue;}
+    knownFingerprints.add(fp);
+   }
+   transactions.push(item);added++;
+  }
+  saveData();
+  alert(`Импорт завершён.\nДобавлено: ${added}\nПропущено как дубликаты: ${duplicates}\nПропущено строк с некорректной датой или суммой: ${invalid}\n\nНеопределённые операции сохранены с исходным описанием в категории «Другое».`);
+  showView('transactions');
  }catch(err){alert('Не удалось импортировать файл: '+err.message)}finally{event.target.value=''}};
- reader.readAsText(file,'utf-8')
+ reader.readAsText(file,'utf-8');
 }
-
 function runSearch(){
  const q=document.getElementById('searchQuery').value.trim().toLocaleLowerCase();
  const from=document.getElementById('searchFrom').value;
