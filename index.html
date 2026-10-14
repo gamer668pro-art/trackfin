@@ -525,7 +525,7 @@ function importPDF(event){
    })).filter(it=>it.str).sort((a,b)=>b.y-a.y||a.x-b.x);
    const rows=[];
    for(const frag of fragments){
-    let row=rows.find(r=>Math.abs(r.y-frag.y)<8);
+    let row=rows.find(r=>Math.abs(r.y-frag.y)<18);
     if(!row){row={y:frag.y,items:[]};rows.push(row);}
     row.items.push(frag);
    }
@@ -564,6 +564,24 @@ function importPDF(event){
    if(current)current.lines.push(line);
   }
   if(current)records.push(current);
+  // Fallback for PDFs whose text items have unusual vertical coordinates: search
+  // the whole extracted page text for date tokens and rebuild records from that stream.
+  if(records.length===0 && allLines.length===0){
+   const pageText=[];
+   for(let pageNo=1;pageNo<=pdf.numPages;pageNo++){
+    const page=await pdf.getPage(pageNo);
+    const content=await page.getTextContent();
+    pageText.push(content.items.map(it=>String(it.str||'').trim()).filter(Boolean).join(' '));
+   }
+   const stream=pageText.join(' ').replace(/\\s+/g,' ').trim();
+   const dateToken=/(\\d{1,2}\\s+[\\p{L}.]+\\s+\\d{4}|\\d{1,2}[./-]\\d{1,2}[./-]\\d{4})/gu;
+   const hits=[...stream.matchAll(dateToken)];
+   for(let i=0;i<hits.length;i++){
+    const start=hits[i].index+hits[i][0].length;
+    const end=i+1<hits.length?hits[i+1].index:stream.length;
+    records.push({dateRaw:hits[i][0],lines:[stream.slice(start,end).trim()]});
+   }
+  }
   for(const rec of records){
    const date=parseBankDate(rec.dateRaw);
    if(!date){invalid++;continue;}
