@@ -58,8 +58,9 @@ nav{position:fixed;z-index:5;bottom:0;left:0;right:0;padding:10px 18px calc(10px
 </section>
 
 <section id="transactions" class="view">
- <div class="section-head"><h2>Транзакции</h2><button class="small-button" onclick="document.getElementById('csvFile').click()">Импорт CSV</button></div>
+ <div class="section-head"><h2>Транзакции</h2><div><button class="small-button" onclick="document.getElementById('pdfFile').click()">Импорт PDF</button> <button class="small-button" onclick="document.getElementById('csvFile').click()">CSV</button></div></div>
  <input id="csvFile" class="hidden" type="file" accept=".csv,text/csv" onchange="importCSV(event)">
+ <input id="pdfFile" class="hidden" type="file" accept=".pdf,application/pdf" onchange="importPDF(event)">
  <div class="filters"><select id="typeFilter" onchange="renderTransactions()"><option value="all">Все операции</option><option value="income">Доходы</option><option value="expense">Расходы</option></select><select id="monthFilter" onchange="renderTransactions()"><option value="all">Все даты</option></select></div>
  <div class="card" id="allList"></div>
  <p class="muted">Формат CSV зависит от банка. Неизвестные описания сохраняются как есть в категории «Другое». Если в файле есть номер транзакции, он запоминается и повторно не импортируется; если номера нет, используется сочетание даты, типа, суммы и описания.</p>
@@ -192,7 +193,7 @@ nav{position:fixed;z-index:5;bottom:0;left:0;right:0;padding:10px 18px calc(10px
  <div class="card">
   <div class="settings-row"><strong>Хранение</strong><p>Операции, цели и взносы хранятся локально в этом браузере на устройстве. Финансовый советник анализирует их в браузере и не отправляет данные внешним сервисам. Данные не синхронизируются между устройствами. Очистка данных браузера может удалить записи.</p></div>
   <div class="settings-row"><strong>Экспорт резервной копии</strong><p>Скачайте JSON-файл с операциями и сохраните его в надёжном месте.</p><button class="primary" onclick="exportData()">Экспортировать данные</button></div>
-  <div class="settings-row"><strong>Импорт банковской выписки</strong><p>Выберите CSV-файл из интернет-банка. Оригинальные описания, переводы и операции с наличными сохраняются как есть в категории «Другое». Повторный импорт проверяется по номеру транзакции, а если его нет — по дате, типу, сумме и описанию. Всё обрабатывается локально в браузере.</p><button onclick="document.getElementById('csvFile').click()">Выбрать CSV</button></div>
+  <div class="settings-row"><strong>Импорт банковской выписки</strong><p>Загрузите PDF-выписку Erste Bank или CSV-файл. FinTrack извлечёт операции прямо в браузере, сохранит исходные описания и пропустит вероятные дубликаты. Файл не отправляется на наш сервер. Для сканированных PDF, где страницы являются только изображениями, может понадобиться OCR.</p><button onclick="document.getElementById('pdfFile').click()">Импортировать PDF</button> <button onclick="document.getElementById('csvFile').click()">Выбрать CSV</button></div>
   <div class="settings-row"><strong>Удаление данных</strong><p>Это действие нельзя отменить без резервной копии.</p><button class="danger" onclick="clearData()">Удалить все операции</button></div>
   <div class="settings-row"><strong>Автоматическая интеграция с банком</strong><p>Не подключена в этой версии. Нельзя безопасно получить банковские операции только по номеру карты. Потребуются согласие владельца счёта, совместимый провайдер и отдельная реализация авторизации.</p></div>
  </div>
@@ -206,6 +207,7 @@ nav{position:fixed;z-index:5;bottom:0;left:0;right:0;padding:10px 18px calc(10px
 <button data-view="search" onclick="showView('search')">Поиск</button>
 <button data-view="settings" onclick="showView('settings')">Настройки</button>
 </nav>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 <script>
 const KEY='fintrack_transactions_v1';
 const categories={expense:['Продукты','Транспорт','Жильё','Здоровье','Покупки','Подписки','Развлечения','Образование','Бизнес','Другое'],income:['Зарплата','Бизнес','Перевод','Подарок','Инвестиции','Другое']};
@@ -482,6 +484,58 @@ function importCSV(event){
  }catch(err){alert('Не удалось импортировать файл: '+err.message)}finally{event.target.value=''}};
  reader.readAsText(file,'utf-8');
 }
+
+function parseBankDate(raw){
+ const clean=String(raw||'').toLocaleLowerCase('uk-UA').replace(/\./g,'').replace(/\s+/g,' ').trim();
+ const months={
+  'січ':1,'січень':1,'stycz':1,'sty':1,'янв':1,
+  'лют':2,'лютий':2,'lut':2,'luty':2,'фев':2,
+  'бер':3,'берез':3,'mar':3,'marzec':3,'март':3,
+  'квіт':4,'квітень':4,'kwi':4,'kwiecień':4,'апр':4,
+  'трав':5,'травень':5,'maj':5,'май':5,
+  'черв':6,'червень':6,'cze':6,'czerwiec':6,'июн':6,
+  'лип':7,'липень':7,'lip':7,'lipiec':7,'июл':7,
+  'серп':8,'серпень':8,'sie':8,'sierpień':8,'авг':8,
+  'верес':9,'вер':9,'wrz':9,'wrzesień':9,'сен':9,
+  'жовт':10,'жов':10,'paź':10,'październik':10,'окт':10,
+  'лист':11,'lis':11,'listopad':11,'ноя':11,
+  'груд':12,'gru':12,'grudzień':12,'дек':12
+ };
+ let m=clean.match(/^(\d{1,2})\s+([\p{L}]+)\s+(\d{4})$/u);
+ if(m){const prefix=m[2].slice(0,4);let mo=months[m[2]];if(!mo)mo=months[Object.keys(months).find(k=>m[2].startsWith(k))];if(mo)return `${m[3]}-${String(mo).padStart(2,'0')}-${String(Number(m[1])).padStart(2,'0')}`;}
+ m=clean.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{4})$/);if(m)return `${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`;
+ return '';
+}
+function importPDF(event){
+ const file=event.target.files?.[0];if(!file)return;
+ if(!window.pdfjsLib){alert('Не удалось загрузить модуль чтения PDF. Проверьте подключение к интернету и обновите страницу.');event.target.value='';return;}
+ const btnMsg='Читаю PDF-выписку. Не закрывайте страницу…';
+ (async()=>{try{
+  pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  const bytes=await file.arrayBuffer();const pdf=await pdfjsLib.getDocument({data:bytes}).promise;let allLines=[];
+  for(let pageNo=1;pageNo<=pdf.numPages;pageNo++){
+   const page=await pdf.getPage(pageNo);const content=await page.getTextContent();const rows=[];
+   for(const it of content.items){if(!it.str||!it.str.trim()||!it.transform)continue;const y=it.transform[5],x=it.transform[4];let row=rows.find(r=>Math.abs(r.y-y)<2.5);if(!row){row={y,parts:[]};rows.push(row)}row.parts.push({x,text:it.str.trim()});}
+   rows.sort((a,b)=>b.y-a.y);for(const row of rows){row.parts.sort((a,b)=>a.x-b.x);const line=row.parts.map(p=>p.text).join(' ').replace(/\s+/g,' ').trim();if(line)allLines.push(line);}
+  }
+  const knownRefs=new Set(transactions.map(t=>normalizeTransactionRef(t.bankTransactionId)).filter(Boolean));const knownFP=new Set(transactions.map(transactionFingerprint));
+  let added=0,duplicates=0,invalid=0;const parsed=[];
+  const datePattern=/^(\d{1,2}\s+[\p{L}\.]+\s+\d{4}|\d{1,2}[./-]\d{1,2}[./-]\d{4})/u;
+  for(const line of allLines){
+   const dm=line.match(datePattern);if(!dm)continue;const date=parseBankDate(dm[1]);
+   const tail=line.slice(dm[0].length).trim();const amounts=[...tail.matchAll(/(-?\s*\d[\d\s.,]*)\s*PLN\b/giu)];
+   if(!date||amounts.length<2){invalid++;continue;}
+   const parseMoney=v=>{let x=String(v).replace(/[\s\u00a0]/g,'').replace(/PLN/ig,'');if(x.includes(',')&&x.includes('.'))x=x.lastIndexOf(',')>x.lastIndexOf('.')?x.replace(/\./g,'').replace(',','.'):x.replace(/,/g,'');else if(x.includes(','))x=x.replace(',','.');return Number(x)};
+   const amount=parseMoney(amounts[0][1]);if(!Number.isFinite(amount)||amount===0){invalid++;continue;}
+   const desc=tail.slice(0,amounts[0].index).replace(/\s+/g,' ').trim()||'Операция из выписки';
+   const type=amount<0?'expense':'income';const item={id:crypto.randomUUID(),type,amount:Math.round(Math.abs(amount)*100)/100,category:'Другое',date,description:desc};
+   const fp=transactionFingerprint(item);if(knownFP.has(fp)){duplicates++;continue;}knownFP.add(fp);transactions.push(item);added++;parsed.push(item);
+  }
+  if(!added&&!duplicates&&!invalid)throw Error('Не найдены строки операций. Возможно, формат PDF отличается или это скан без текстового слоя.');
+  saveData();alert(`Импорт PDF завершён.\nСтраниц: ${pdf.numPages}\nДобавлено операций: ${added}\nПропущено как дубликаты: ${duplicates}\nСтрок, требующих проверки: ${invalid}\n\nПроверьте несколько операций в разделе «Операции». Неопределённые описания сохранены как есть.`);showView('transactions');
+ }catch(err){alert('Не удалось обработать PDF: '+(err?.message||err));}finally{event.target.value='';}})();
+}
+
 function runSearch(){
  const q=document.getElementById('searchQuery').value.trim().toLocaleLowerCase();
  const from=document.getElementById('searchFrom').value;
