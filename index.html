@@ -327,9 +327,9 @@ function categorySvg(name){
  const svg=icons[name]||icons['Другое'];
  return '<svg viewBox="0 0 24 24" aria-hidden="true">'+svg+'</svg>';
 }
-function iconFor(t){const name=t.type==='income'&&(!t.category||t.category==='Другое')?'Зарплата':(t.category||'Другое');return '<span data-category="'+esc(name)+'">'+categorySvg(name)+'</span>'}
+function iconFor(t){const name=t.type==='income'&&(!t.category||t.category==='Другое')?'Зарплата':(t.category||'Другое');return categorySvg(name)}
 function signed(t){return (t.type==='income'?'+':'−')+fmt(t.amount)}
-function txHtml(t){return `<div class="transaction"><div class="tx-icon">${iconFor(t)}</div><div class="tx-info"><div class="tx-title">${esc(t.description||t.category)}</div><div class="tx-sub">${esc(t.category)} · ${esc(t.date)}</div></div><div style="text-align:right"><div class="tx-amount ${t.type==='income'?'positive':'negative'}">${signed(t)}</div><div style="margin-top:5px;white-space:nowrap"><button class="small-button" onclick="editTx('${t.id}')">Изм.</button> <button class="small-button" onclick="deleteTx('${t.id}')">×</button></div></div></div>`}
+function txHtml(t){return `<div class="transaction"><div class="tx-icon" data-category="${esc(t.category||"Другое")}">${iconFor(t)}</div><div class="tx-info"><div class="tx-title">${esc(t.description||t.category)}</div><div class="tx-sub">${esc(t.category)} · ${esc(t.date)}</div></div><div style="text-align:right"><div class="tx-amount ${t.type==='income'?'positive':'negative'}">${signed(t)}</div><div style="margin-top:5px;white-space:nowrap"><button class="small-button" onclick="editTx('${t.id}')">Изм.</button> <button class="small-button" onclick="deleteTx('${t.id}')">×</button></div></div></div>`}
 function listHtml(items){return items.length?items.slice().sort((a,b)=>b.date.localeCompare(a.date)).map(txHtml).join(''):'<div class="empty">Операций пока нет</div>'}
 function sum(items,type){return items.filter(t=>t.type===type).reduce((s,t)=>s+t.amount,0)}
 function currentMonth(){return today().slice(0,7)}
