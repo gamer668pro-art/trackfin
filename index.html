@@ -126,7 +126,6 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:#8976ff;box-sh
 </head>
 <body>
 <header><div><div class="muted">ЛИЧНЫЕ ФИНАНСЫ</div><h1>FinTrack</h1></div><span class="pill">PLN · локально</span></header>
-<div class="notice" id="bankNotice"><strong>Банковская интеграция не подключена.</strong> Для автоматического импорта нужен совместимый PSD2/Open Banking-провайдер и подключение выбранного банка. Пока можно импортировать CSV-выписку — файл обрабатывается в браузере.</div>
 
 <main>
 <section id="dashboard" class="view active">
@@ -206,8 +205,7 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:#8976ff;box-sh
 
 
 <section id="advisor" class="view">
- <div class="section-head"><h2>Финансовый советник</h2><span class="pill">Без ИИ · локально</span></div>
- <div class="notice"><strong>Приватность:</strong> анализ выполняется JavaScript-кодом в этом браузере. Финансовые данные не отправляются внешним сервисам. Советы основаны на внесённых операциях и простых правилах, а не на ответах генеративного ИИ.</div>
+ <div class="section-head"><h2>Финансовый советник</h2><span class="pill">Финансовый анализ</span></div>
  <div class="card">
   <h2>Твоя финансовая картина</h2>
   <div class="metrics">
@@ -215,8 +213,18 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:#8976ff;box-sh
    <div class="metric"><div class="label">Расходы за месяц</div><div class="value negative" id="advisorExpense">0,00 zł</div></div>
    <div class="metric"><div class="label">Остаток за месяц</div><div class="value" id="advisorNet">0,00 zł</div></div>
    <div class="metric"><div class="label">Доля остатка от дохода</div><div class="value" id="advisorRate">—</div></div>
+   <div class="metric"><div class="label">Доступно в день</div><div class="value" id="advisorDailyLimit">—</div></div>
+   <div class="metric"><div class="label">Прогноз на конец месяца</div><div class="value" id="advisorForecast">—</div></div>
   </div>
   <p id="advisorDataNote" class="muted" style="margin-bottom:0"></p>
+ </div>
+ <div class="card">
+  <h2>Бюджет и обязательные расходы</h2>
+  <p class="muted">Укажи месячный лимит расходов. Список обязательных категорий можно настроить под себя.</p>
+  <div class="field"><label for="advisorBudget">Месячный лимит расходов, PLN (0 — без лимита)</label><input id="advisorBudget" type="number" min="0" step="50" value="0"></div>
+  <div class="field"><label for="essentialCategories">Обязательные категории через запятую</label><input id="essentialCategories" placeholder="Жильё, Продукты, Транспорт, Здоровье, Подписки, Образование"></div>
+  <button type="button" class="primary" onclick="saveAdvisorSettings()">Сохранить настройки</button>
+  <div id="advisorBudgetSummary" class="advisor-answer">Месячный лимит не установлен.</div>
  </div>
  <div class="card">
   <h2>Рекомендации по твоим данным</h2>
@@ -225,7 +233,7 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:#8976ff;box-sh
  </div>
  <div class="card">
   <h2>Спросить советника</h2>
-  <p class="muted">Это локальный помощник с готовыми сценариями: он не использует ИИ и отвечает только на поддерживаемые темы.</p>
+  <p class="muted">Локальный анализ расходов, бюджета, накоплений и прогноза. ИИ пока не подключён.</p>
   <div class="field"><label for="advisorQuestion">Вопрос</label><input id="advisorQuestion" maxlength="180" placeholder="Например, как быстрее накопить?"></div>
   <button class="primary" type="button" onclick="askAdvisor()">Получить ответ</button>
   <div class="advisor-actions">
@@ -439,88 +447,36 @@ document.getElementById('goalContributionForm').addEventListener('submit',e=>{
  saveGoals();cancelContributionForm();
 });
 
-function advisorPeriodStats(key){
- const items=transactions.filter(t=>monthKey(t.date)===key);
- const income=sum(items,'income'),expense=sum(items,'expense');
- return {items,income,expense,net:income-expense};
-}
-function advisorCategoryGroup(category){
- const c=String(category||'').toLocaleLowerCase('ru-RU');
- if(['продукты','транспорт','жильё','здоровье','образование'].includes(c))return 'needs';
- if(['покупки','подписки','развлечения'].includes(c))return 'wants';
- return 'other';
-}
+const ADVISOR_SETTINGS_KEY='fintrack_advisor_settings_v1';
+const DEFAULT_ESSENTIAL_CATEGORIES=['Жильё','Продукты','Транспорт','Здоровье','Подписки','Образование'];
+function loadAdvisorSettings(){try{const x=JSON.parse(localStorage.getItem(ADVISOR_SETTINGS_KEY)||'{}');return {monthlyBudget:Math.max(0,Number(x.monthlyBudget)||0),essentialCategories:Array.isArray(x.essentialCategories)?x.essentialCategories:DEFAULT_ESSENTIAL_CATEGORIES.slice()}}catch(e){return {monthlyBudget:0,essentialCategories:DEFAULT_ESSENTIAL_CATEGORIES.slice()}}}
+let advisorSettings=loadAdvisorSettings();
+function saveAdvisorSettings(){const b=document.getElementById('advisorBudget'),c=document.getElementById('essentialCategories');const names=String(c.value||'').split(',').map(x=>x.trim()).filter(Boolean);advisorSettings={monthlyBudget:Math.max(0,Number(b.value)||0),essentialCategories:names.length?Array.from(new Set(names)):DEFAULT_ESSENTIAL_CATEGORIES.slice()};localStorage.setItem(ADVISOR_SETTINGS_KEY,JSON.stringify(advisorSettings));renderAdvisor()}
+function advisorPeriodStats(key){const items=transactions.filter(t=>monthKey(t.date)===key);const income=sum(items,'income'),expense=sum(items,'expense');return {items,income,expense,net:income-expense}}
+function advisorCategoryGroup(category){const c=String(category||'Другое').trim().toLocaleLowerCase('ru-RU');return advisorSettings.essentialCategories.some(x=>x.toLocaleLowerCase('ru-RU')===c)?'needs':'wants'}
 function advisorMoney(n){return fmt(Math.round((Number(n)||0)*100)/100)}
+function advisorDaysRemaining(){const d=new Date(),last=new Date(d.getFullYear(),d.getMonth()+1,0).getDate();return Math.max(1,last-d.getDate()+1)}
+function advisorForecast(stats){const d=new Date(),elapsed=Math.max(1,d.getDate()),last=new Date(d.getFullYear(),d.getMonth()+1,0).getDate();return moneyRound(stats.income-stats.expense-(stats.expense/elapsed)*(last-d.getDate()))}
 function renderAdvisor(){
- const host=document.getElementById('advisorCards');if(!host)return;
- const nowKey=currentMonth(), cur=advisorPeriodStats(nowKey);
- const prevDate=new Date();prevDate.setDate(1);prevDate.setMonth(prevDate.getMonth()-1);
- const prevKey=prevDate.getFullYear()+'-'+String(prevDate.getMonth()+1).padStart(2,'0');
- const prev=advisorPeriodStats(prevKey);
- document.getElementById('advisorIncome').textContent=advisorMoney(cur.income);
- document.getElementById('advisorExpense').textContent=advisorMoney(cur.expense);
- const netEl=document.getElementById('advisorNet');netEl.textContent=advisorMoney(cur.net);netEl.className='value '+(cur.net>=0?'positive':'negative');
- document.getElementById('advisorRate').textContent=cur.income>0?Math.round(cur.net/cur.income*100)+'%':'—';
- const count=cur.items.length;
- document.getElementById('advisorDataNote').textContent=count===0?'За текущий месяц пока нет операций. Добавь доходы и расходы, чтобы получить персональные выводы.':`Учтено операций за текущий месяц: ${count}. Анализ охватывает только данные, внесённые в FinTrack; неучтённые счета и долги неизвестны.`;
- const cards=[];
- if(count===0){cards.push({tag:'Недостаточно данных',title:'Начни с учёта операций',body:'Добавь доходы и расходы за текущий месяц. Пока данных нет, невозможно надёжно оценить бюджет или потенциал экономии.'});}
- else {
-  if(cur.income<=0){cards.push({tag:'Приоритет',title:'Доходы не внесены',body:'За текущий месяц не найдено доходов. Проверь, внесены ли все поступления: без них оценка остатка и бюджета будет неполной.'});}
-  else if(cur.net<0){cards.push({tag:'Требует внимания',title:'Расходы выше доходов',body:`За текущий месяц расходы превышают доходы на ${advisorMoney(Math.abs(cur.net))}. Проверь крупные и необязательные покупки, а также убедись, что все доходы внесены. Не сокращай базовые расходы, необходимые для здоровья, жилья и работы.`});}
-  else if(cur.net===0){cards.push({tag:'Нейтрально',title:'Доходы равны расходам',body:'В текущем месяце весь учтённый доход ушёл на расходы. Если это не временная ситуация, проверь категории и выбери реалистичную сумму для накоплений.'});}
-  else {cards.push({tag:'Положительный остаток',title:'Есть пространство для накоплений',body:`После учтённых расходов остаётся ${advisorMoney(cur.net)}. Это расчётный остаток, а не подтверждение наличия такой суммы на банковском счёте. Учти предстоящие обязательные платежи перед тем, как распределять его.`});}
-  const cats={};cur.items.filter(t=>t.type==='expense').forEach(t=>{const c=t.category||'Другое';cats[c]=(cats[c]||0)+Number(t.amount||0)});
-  const top=Object.entries(cats).sort((a,b)=>b[1]-a[1])[0];
-  if(top&&cur.expense>0){const share=Math.round(top[1]/cur.expense*100);cards.push({tag:'Расходы по категориям',title:`Самая крупная категория — «${top[0]}»`,body:`На неё приходится ${advisorMoney(top[1])}, или примерно ${share}% учтённых расходов месяца. Это не означает автоматически, что расход лишний. Проверь операции в категории и отметь, какие из них можно изменить без ущерба базовым потребностям.`});}
-  if(cur.income>0){
-   const needs=cur.items.filter(t=>t.type==='expense'&&advisorCategoryGroup(t.category)==='needs').reduce((s,t)=>s+Number(t.amount||0),0);
-   const wants=cur.items.filter(t=>t.type==='expense'&&advisorCategoryGroup(t.category)==='wants').reduce((s,t)=>s+Number(t.amount||0),0);
-   const other=cur.items.filter(t=>t.type==='expense'&&advisorCategoryGroup(t.category)==='other').reduce((s,t)=>s+Number(t.amount||0),0);
-   const needPct=needs/cur.income*100,wantPct=wants/cur.income*100,savePct=Math.max(0,cur.net)/cur.income*100;
-   cards.push({tag:'Ориентир 50/30/20',title:'Сравнение с ориентиром бюджета',body:`Отмеченные как необходимые категории: ${advisorMoney(needs)} (${Math.round(needPct)}% дохода). Желательные категории: ${advisorMoney(wants)} (${Math.round(wantPct)}%). Положительный остаток: ${advisorMoney(Math.max(0,cur.net))} (${Math.round(savePct)}%). Ещё ${advisorMoney(other)} расходов попали в категории без однозначной классификации. Это предварительная оценка: категории нужно проверить вручную, а правило 50/30/20 не является обязательной нормой.`});
-  }
-  if(prev.income>0||prev.expense>0){
-   const expDiff=cur.expense-prev.expense;
-   if(expDiff>0){cards.push({tag:'Сравнение месяцев',title:'Расходы выше прошлого месяца',body:`В текущем месяце уже учтено на ${advisorMoney(expDiff)} расходов больше, чем за весь прошлый месяц (${advisorMoney(prev.expense)}). Сравнение неполных периодов может вводить в заблуждение: проверь динамику ближе к концу месяца.`});}
-   else if(expDiff<0){cards.push({tag:'Сравнение месяцев',title:'Расходы пока ниже прошлого месяца',body:`В текущем месяце учтено на ${advisorMoney(Math.abs(expDiff))} меньше расходов, чем за прошлый месяц. Текущий месяц ещё может быть неполным, поэтому это предварительный результат.`});}
-  }
- }
- const activeGoals=goals.filter(g=>Number(g.target)>0);
- if(activeGoals.length){const unfinished=activeGoals.filter(g=>goalBalance(g)<Number(g.target));if(unfinished.length){const g=unfinished.slice().sort((a,b)=>{const da=a.deadline||'9999-99-99',db=b.deadline||'9999-99-99';return da.localeCompare(db)})[0];const remaining=Math.max(0,Number(g.target)-goalBalance(g)),need=goalMonthlyNeed(g);cards.push({tag:'Финансовые цели',title:`Цель «${g.name}»`,body:`Осталось накопить ${advisorMoney(remaining)}. ${g.deadline?(need===0?'По текущему расчёту цель уже профинансирована или сумма достигнута.':`Для срока ${g.deadline} требуется ориентировочно ${advisorMoney(need)}/мес.`):'Укажи срок в настройках цели, чтобы рассчитать необходимый ежемесячный взнос.'} Сравни плановый взнос с реальным свободным остатком и не учитывай одну и ту же сумму дважды.`});}else{cards.push({tag:'Финансовые цели',title:'Все цели достигли целевой суммы',body:'По сохранённым данным суммы всех целей достигнуты. Проверь, актуальны ли целевые суммы и записи о снятии денег.'});}}
- const microLimitEl=document.getElementById('microThreshold');const limit=microLimitEl?Number(microLimitEl.value):15;
- const small=cur.items.filter(t=>t.type==='expense'&&Number(t.amount)>0&&Number(t.amount)<=limit);
- const smallTotal=small.reduce((s,t)=>s+Number(t.amount),0);
- if(small.length>=3){cards.push({tag:'Мелкие расходы',title:'Небольшие покупки складываются в заметную сумму',body:`В текущем месяце найдено ${small.length} покупок не дороже ${advisorMoney(limit)} на общую сумму ${advisorMoney(smallTotal)}. Если часть из них необязательна, выбери реалистичное сокращение; не все мелкие расходы лишние.`});}
- host.innerHTML=cards.map(c=>`<div class="advisor-card"><span class="advisor-tag">${esc(c.tag)}</span><h3>${esc(c.title)}</h3><div style="font-size:14px;line-height:1.5">${esc(c.body)}</div></div>`).join('');
+ const host=document.getElementById('advisorCards');if(!host)return;const cur=advisorPeriodStats(currentMonth()),days=advisorDaysRemaining();
+ document.getElementById('advisorIncome').textContent=advisorMoney(cur.income);document.getElementById('advisorExpense').textContent=advisorMoney(cur.expense);
+ const net=document.getElementById('advisorNet');net.textContent=advisorMoney(cur.net);net.className='value '+(cur.net>=0?'positive':'negative');document.getElementById('advisorRate').textContent=cur.income?Math.round(cur.net/cur.income*100)+'%':'—';
+ const budgetEl=document.getElementById('advisorBudget'),catEl=document.getElementById('essentialCategories');if(budgetEl&&document.activeElement!==budgetEl)budgetEl.value=advisorSettings.monthlyBudget;if(catEl&&document.activeElement!==catEl)catEl.value=advisorSettings.essentialCategories.join(', ');
+ const remaining=advisorSettings.monthlyBudget>0?advisorSettings.monthlyBudget-cur.expense:null;const daily=Math.max(0,remaining===null?cur.net:remaining)/days;const forecast=advisorForecast(cur);document.getElementById('advisorDailyLimit').textContent=advisorMoney(daily);document.getElementById('advisorForecast').textContent=advisorMoney(forecast);
+ const count=cur.items.length;document.getElementById('advisorDataNote').textContent=count?'Учтено операций за месяц: '+count+'. Прогноз продолжает текущий темп расходов и не учитывает неизвестные счета, долги или будущие доходы.':'За текущий месяц пока нет операций. Добавь доходы и расходы для персонального анализа.';
+ const cards=[];if(!count)cards.push({tag:'Недостаточно данных',title:'Начни с учёта операций',body:'Добавь операции за текущий месяц, чтобы оценить бюджет и потенциальные накопления.'});
+ else {if(cur.income<=0)cards.push({tag:'Приоритет',title:'Доходы не внесены',body:'За текущий месяц нет учтённых доходов. Проверь полноту данных прежде, чем принимать финансовые решения.'});else if(cur.net<0)cards.push({tag:'Внимание',title:'Расходы выше доходов',body:'Расходы превышают доходы на '+advisorMoney(-cur.net)+'. Сначала проверь необязательные покупки и будущие платежи; не сокращай необходимые расходы на жильё, питание и здоровье.'});else cards.push({tag:'Финансовая картина',title:cur.net>0?'Есть потенциальный остаток':'Доходы равны расходам',body:cur.net>0?'По внесённым операциям осталось '+advisorMoney(cur.net)+', но из этой суммы ещё нужно вычесть предстоящие обязательные платежи.':'Весь учтённый доход ушёл на расходы. Проверь категории и предстоящие счета.'});
+ const ex=cur.items.filter(t=>t.type==='expense'),cats={};ex.forEach(t=>{const c=t.category||'Другое';cats[c]=(cats[c]||0)+Number(t.amount||0)});const sorted=Object.entries(cats).sort((a,b)=>b[1]-a[1]);
+ if(sorted.length){const top=sorted[0],needs=ex.filter(t=>advisorCategoryGroup(t.category)==='needs').reduce((a,t)=>a+Number(t.amount||0),0),wants=cur.expense-needs;cards.push({tag:'Категории',title:'Крупнейшая категория — '+top[0][0],body:'Потрачено '+advisorMoney(top[1])+' ('+(cur.expense?Math.round(top[1]/cur.expense*100):0)+'% расходов). Обязательные по твоим настройкам категории: '+advisorMoney(needs)+'. Остальные категории: '+advisorMoney(wants)+'. Категория не всегда определяет необходимость каждой отдельной покупки.'});if(wants>0)cards.push({tag:'Экономия',title:'Проверь необязательные расходы',body:'В категориях, не отмеченных обязательными, учтено '+advisorMoney(wants)+'. Это не гарантированная экономия: начни с редко используемых подписок и повторяющихся покупок.'})}
+ if(advisorSettings.monthlyBudget>0){const pct=Math.round(cur.expense/advisorSettings.monthlyBudget*100);cards.push({tag:'Месячный бюджет',title:pct>=100?'Лимит превышен':pct>=80?'Использовано более 80% бюджета':'Бюджет под контролем',body:'Лимит '+advisorMoney(advisorSettings.monthlyBudget)+', потрачено '+advisorMoney(cur.expense)+' ('+pct+'%). '+(remaining<0?'Превышение: '+advisorMoney(-remaining)+'.':'Остаток: '+advisorMoney(remaining)+'.')+' Дневной ориентир на оставшиеся дни: '+advisorMoney(daily)+'. Сначала учитывай будущие обязательные платежи.'})}
+ if(forecast<0)cards.push({tag:'Прогноз',title:'Возможен дефицит к концу месяца',body:'При сохранении текущего темпа расчётный результат составит '+advisorMoney(forecast)+'. Это приблизительная экстраполяция, а не гарантия.'});
+ const unfinished=goals.filter(g=>Number(g.target)>goalBalance(g));if(unfinished.length){const g=unfinished[0],left=Math.max(0,Number(g.target)-goalBalance(g));cards.push({tag:'Накопления',title:'Цель «'+g.name+'»',body:'Осталось накопить '+advisorMoney(left)+'. Планируй взнос только после учёта обязательных платежей.'})}
+ const threshold=Number(document.getElementById('microThreshold')?.value||15),small=cur.items.filter(t=>t.type==='expense'&&Number(t.amount)>0&&Number(t.amount)<=threshold),smallSum=small.reduce((a,t)=>a+Number(t.amount),0);if(small.length>=3)cards.push({tag:'Мелкие покупки',title:'Небольшие расходы складываются',body:'Найдено '+small.length+' покупок до '+advisorMoney(threshold)+' на '+advisorMoney(smallSum)+'. Проверь их по отдельности — не все мелкие расходы лишние.'});
+ host.innerHTML=cards.map(c=>'<div class="advisor-card"><span class="advisor-tag">'+esc(c.tag)+'</span><h3>'+esc(c.title)+'</h3><div style="font-size:14px;line-height:1.5">'+esc(c.body)+'</div></div>').join('');const summary=document.getElementById('advisorBudgetSummary');if(summary)summary.textContent=advisorSettings.monthlyBudget>0?'Лимит: '+advisorMoney(advisorSettings.monthlyBudget)+'. Потрачено: '+advisorMoney(cur.expense)+'. Остаток лимита: '+advisorMoney(remaining)+'. Дневной ориентир: '+advisorMoney(daily)+'.':'Лимит не установлен. Дневной ориентир по внесённым операциям: '+advisorMoney(daily)+'. Учти будущие обязательные платежи.';
 }
-function advisorAnswerFor(question){
- const q=String(question||'').toLocaleLowerCase('ru-RU');const cur=advisorPeriodStats(currentMonth());
- if(!q.trim())return 'Введи вопрос или выбери одну из готовых тем.';
- if(/цель|накоп|машин|телефон|собрат/.test(q)){
-  if(!goals.length)return 'В FinTrack пока нет финансовых целей. Создай цель в разделе «Статистика» → «Мои финансовые цели». После этого советник сможет рассчитать остаток и ориентировочный ежемесячный взнос.';
-  return goals.map(g=>{const saved=goalBalance(g),left=Math.max(0,Number(g.target)-saved),need=goalMonthlyNeed(g);return `«${g.name}»: накоплено ${advisorMoney(saved)} из ${advisorMoney(g.target)}; осталось ${advisorMoney(left)}.${g.deadline?` Срок: ${g.deadline}; ориентировочный взнос: ${advisorMoney(need||0)}/мес.`:' Срок не установлен.'}`}).join('\n\n')+'\n\nСравни требуемые взносы с реальным остатком после обязательных расходов.';
- }
- if(/расход|трат|покуп|категор/.test(q)){
-  const cats={};cur.items.filter(t=>t.type==='expense').forEach(t=>{cats[t.category||'Другое']=(cats[t.category||'Другое']||0)+Number(t.amount||0)});const rows=Object.entries(cats).sort((a,b)=>b[1]-a[1]);
-  return cur.items.length?`За текущий месяц расходы: ${advisorMoney(cur.expense)}. Доходы: ${advisorMoney(cur.income)}. Остаток: ${advisorMoney(cur.net)}.\n\nКрупнейшие категории:\n${rows.slice(0,5).map(([c,v])=>`• ${c}: ${advisorMoney(v)} (${cur.expense?Math.round(v/cur.expense*100):0}% расходов)`).join('\n')||'Расходы пока не внесены.'}\n\nЭто анализ только внесённых операций.`:'За текущий месяц нет операций. Добавь данные, чтобы анализировать расходы.';
- }
- if(/эконом|сократ|лишн|мелк/.test(q)){
-  const cats={};cur.items.filter(t=>t.type==='expense').forEach(t=>{cats[t.category||'Другое']=(cats[t.category||'Другое']||0)+Number(t.amount||0)});const rows=Object.entries(cats).sort((a,b)=>b[1]-a[1]);
-  const limit=document.getElementById('microThreshold')?Number(document.getElementById('microThreshold').value):15;const small=cur.items.filter(t=>t.type==='expense'&&Number(t.amount)>0&&Number(t.amount)<=limit);const total=small.reduce((s,t)=>s+Number(t.amount),0);
-  return rows.length?`Начни с проверки крупнейших категорий: ${rows.slice(0,3).map(([c,v])=>`${c} — ${advisorMoney(v)}`).join('; ')}.\n\nПокупок до ${advisorMoney(limit)}: ${small.length}, всего ${advisorMoney(total)}. Это сумма для проверки, а не гарантированная экономия. Выбери только те расходы, которые можно сократить без ущерба обязательным потребностям.`:'Расходы не найдены. Добавь операции, чтобы искать возможную экономию.';
- }
- if(/бюджет|50.?30.?20|процент|сбереж|остаток|могу ли|позволить/.test(q)){
-  if(cur.income<=0)return 'За текущий месяц доходы не внесены. Сначала добавь все поступления и расходы. После этого можно оценить бюджет 50/30/20. Этот ориентир гибкий и не подходит автоматически всем ситуациям.';
-  const needs=cur.items.filter(t=>t.type==='expense'&&advisorCategoryGroup(t.category)==='needs').reduce((s,t)=>s+Number(t.amount||0),0),wants=cur.items.filter(t=>t.type==='expense'&&advisorCategoryGroup(t.category)==='wants').reduce((s,t)=>s+Number(t.amount||0),0),other=cur.items.filter(t=>t.type==='expense'&&advisorCategoryGroup(t.category)==='other').reduce((s,t)=>s+Number(t.amount||0),0);
-  return `За текущий месяц: доходы ${advisorMoney(cur.income)}, расходы ${advisorMoney(cur.expense)}, остаток ${advisorMoney(cur.net)}.\n\nПредварительная разбивка: необходимые категории ${advisorMoney(needs)} (${Math.round(needs/cur.income*100)}% дохода); желательные ${advisorMoney(wants)} (${Math.round(wants/cur.income*100)}%); не классифицировано ${advisorMoney(other)}.\n\nПеред решением о покупке проверь будущие обязательные платежи, долги и деньги, уже предназначенные для целей. Текущий остаток по операциям не равен гарантированно доступным деньгам на счёте.`;
- }
- if(/долг|кредит|процентн|резерв|подушк|инвест/.test(q))return 'В текущей версии FinTrack нет полноценного учёта долгов, ставок и размера финансового резерва. Советник не будет придумывать эти значения. Пока можно добавить их вручную в вопрос, но расчёты по долгам и резерву появятся после отдельного модуля.';
- return 'Пока я могу анализировать расходы, бюджет 50/30/20, мелкие покупки и финансовые цели. Попробуй спросить: «На что я трачу больше всего?», «Как быстрее накопить?» или «Как выглядит мой бюджет?». Ответ формируется локально по заданным правилам, это не свободный ИИ-диалог.';
-}
-function askAdvisor(){const input=document.getElementById('advisorQuestion');document.getElementById('advisorAnswer').textContent=advisorAnswerFor(input.value);}
-function quickAdvisor(topic){document.getElementById('advisorQuestion').value=topic;askAdvisor();}
-
+function advisorAnswerFor(question){const q=String(question||'').toLocaleLowerCase('ru-RU'),cur=advisorPeriodStats(currentMonth()),ex=cur.items.filter(t=>t.type==='expense'),cats={};ex.forEach(t=>{const c=t.category||'Другое';cats[c]=(cats[c]||0)+Number(t.amount||0)});const sorted=Object.entries(cats).sort((a,b)=>b[1]-a[1]);if(!q.trim())return 'Введи вопрос или выбери готовую тему.';if(/прогноз|конец месяца|останется/.test(q))return 'Прогноз результата месяца: '+advisorMoney(advisorForecast(cur))+'. Это оценка при сохранении текущего темпа расходов; будущие счета и доходы неизвестны.';if(/цель|накоп|машин|телефон/.test(q)){if(!goals.length)return 'Пока нет финансовых целей. Создай цель в разделе «Статистика».';return goals.map(g=>'«'+g.name+'»: накоплено '+advisorMoney(goalBalance(g))+' из '+advisorMoney(g.target)+', осталось '+advisorMoney(Math.max(0,Number(g.target)-goalBalance(g)))+'.').join('\n')}if(/расход|трат|покуп|категор/.test(q)){const needs=ex.filter(t=>advisorCategoryGroup(t.category)==='needs').reduce((a,t)=>a+Number(t.amount||0),0);return 'Доходы: '+advisorMoney(cur.income)+', расходы: '+advisorMoney(cur.expense)+', остаток: '+advisorMoney(cur.net)+'.\nОбязательные категории: '+advisorMoney(needs)+', остальные категории: '+advisorMoney(cur.expense-needs)+'.\nКрупнейшие категории:\n'+(sorted.slice(0,5).map(x=>'• '+x[0]+': '+advisorMoney(x[1])).join('\n')||'Расходов пока нет')+'. Проверь классификацию отдельных покупок.'}if(/эконом|сократ|лишн|мелк/.test(q)){const wants=ex.filter(t=>advisorCategoryGroup(t.category)==='wants').reduce((a,t)=>a+Number(t.amount||0),0);return 'Расходы в категориях, не отмеченных обязательными: '+advisorMoney(wants)+'. Это кандидаты для проверки, не гарантированная экономия. Начни с редко используемых подписок и повторяющихся покупок.'}if(/бюджет|лимит|день|остаток|позволить/.test(q)){const rem=advisorSettings.monthlyBudget>0?advisorSettings.monthlyBudget-cur.expense:cur.net;return 'Доходы: '+advisorMoney(cur.income)+', расходы: '+advisorMoney(cur.expense)+', результат: '+advisorMoney(cur.net)+'. '+(advisorSettings.monthlyBudget>0?'Остаток месячного лимита: '+advisorMoney(rem)+'. ':'Месячный лимит не установлен. ')+'Дневной ориентир: '+advisorMoney(Math.max(0,rem)/advisorDaysRemaining())+'. Учти обязательные платежи.'}return 'Я могу анализировать расходы по категориям, обязательные и необязательные траты, бюджет, дневной лимит, прогноз остатка и финансовые цели.'}
+function askAdvisor(){const input=document.getElementById('advisorQuestion');document.getElementById('advisorAnswer').textContent=advisorAnswerFor(input.value)}
+function quickAdvisor(topic){document.getElementById('advisorQuestion').value=topic;askAdvisor()}
 function renderAll(){renderDashboard();renderMonthFilter();renderTransactions();renderAnalytics();renderGoals();renderMicroAnalysis();renderAdvisor();if(document.getElementById('search'))runSearch()}
 function showView(id){document.querySelectorAll('.view').forEach(v=>v.classList.toggle('active',v.id===id));document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('active',b.dataset.view===id));window.scrollTo(0,0)}
 function fillCategories(type,selected){const sel=document.getElementById('txCategory');sel.innerHTML=categories[type].map(c=>`<option>${c}</option>`).join('');if(selected&&categories[type].includes(selected))sel.value=selected}
