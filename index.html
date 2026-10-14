@@ -244,7 +244,7 @@ nav button.active,nav button[aria-current="page"]{
 @media(max-width:480px){.chart-tooltip{padding:9px 10px;min-width:140px}.chart-legend{gap:9px}.line-chart .series-line{stroke-width:2.5}}
 @media(prefers-reduced-motion:reduce){.line-chart .series-line{stroke-dasharray:none;stroke-dashoffset:0;animation:none}.category-row,.category-row .fill{animation:none;transform:none}.chart-tooltip{transition:none}}
 
-</style>
+.chart-period-label{display:inline-flex;align-items:center;gap:6px;color:var(--muted);flex-shrink:0}.chart-period{max-width:118px;padding:7px 9px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--text);font:inherit;font-size:12px;cursor:pointer}.chart-period:focus-visible{outline:2px solid var(--accent);outline-offset:2px}@media(max-width:480px){.chart-period{max-width:108px;padding:7px 6px}.chart-period-label{gap:4px}}</style>
 </head>
 <body>
 <header><div><div class="muted">ЛИЧНЫЕ ФИНАНСЫ</div><h1>FinTrack</h1></div><span class="pill">PLN · локально</span></header>
@@ -260,7 +260,7 @@ nav button.active,nav button[aria-current="page"]{
   </div>
  </div>
  <div class="actions"><button class="action-income" onclick="openForm('income')">＋ Доход</button><button class="action-expense" onclick="openForm('expense')">− Расход</button></div>
- <div class="card"><div class="section-head"><h2>Движение денег</h2><span class="muted">6 месяцев</span></div><div id="chart"></div></div>
+ <div class="card"><div class="section-head"><h2>Движение денег</h2><label class="chart-period-label" for="dashboardChartPeriod"><span aria-hidden="true">▦</span> <select id="dashboardChartPeriod" class="chart-period" data-chart-period aria-label="Период графика"><option value="3d">3 дня</option><option value="7d">Неделя</option><option value="1m">Месяц</option><option value="6m" selected>6 месяцев</option></select></label></div><div id="chart"></div></div>
  <div class="section-head"><h2>Последние операции</h2><button class="small-button" onclick="showView('transactions')">Все</button></div>
  <div class="card" id="recentList"></div>
 </section>
@@ -277,7 +277,7 @@ nav button.active,nav button[aria-current="page"]{
 <section id="analytics" class="view">
  <div class="section-head"><h2>Аналитика</h2></div>
  <div class="card"><h2>Итоги текущего месяца</h2><div class="metrics"><div class="metric"><div class="label">Чистый результат</div><div class="value" id="netResult">0,00 zł</div></div><div class="metric"><div class="label">Доля сбережений</div><div class="value" id="savingRate">0%</div></div></div></div>
- <div class="card"><h2>Динамика за 6 месяцев</h2><div id="analyticsTrend"></div></div><div class="card"><h2>Расходы по категориям</h2><div id="categories"></div></div>
+ <div class="card"><div class="section-head"><h2>Динамика доходов и расходов</h2><label class="chart-period-label" for="analyticsChartPeriod"><span aria-hidden="true">▦</span> <select id="analyticsChartPeriod" class="chart-period" data-chart-period aria-label="Период графика"><option value="3d">3 дня</option><option value="7d">Неделя</option><option value="1m">Месяц</option><option value="6m" selected>6 месяцев</option></select></label></div><div id="analyticsTrend"></div></div><div class="card"><h2>Расходы по категориям</h2><div id="categories"></div></div>
  
   <div class="card">
    <h2>Анализ мелких расходов</h2>
@@ -527,63 +527,64 @@ function shortChartAmount(value){
  if(abs>=1000)return sign+(abs/1000).toLocaleString('pl-PL',{maximumFractionDigits:1})+' tys.';
  return sign+Math.round(abs).toLocaleString('pl-PL');
 }
+let chartPeriod='6m';
 function lastSixMonthsData(){
- const keys=[],d=new Date();
+ const d=new Date(),keys=[];
  for(let i=5;i>=0;i--){const x=new Date(d.getFullYear(),d.getMonth()-i,1);keys.push(x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0'))}
- return keys.map(k=>{const items=transactions.filter(t=>monthKey(t.date)===k),income=sum(items,'income'),expense=sum(items,'expense');return {k,income,expense,net:income-expense,hasData:items.length>0}});
+ return keys.map(k=>{const a=transactions.filter(t=>monthKey(t.date)===k),income=sum(a,'income'),expense=sum(a,'expense');return {k,label:monthLabel(k),income,expense,net:moneyRound(income-expense),hasData:a.length>0,kind:'month'}});
+}
+function getChartData(period=chartPeriod){
+ const now=new Date();
+ if(period==='6m')return lastSixMonthsData();
+ const count=period==='3d'?3:period==='7d'?7:now.getDate();
+ const end=new Date(now.getFullYear(),now.getMonth(),now.getDate()),begin=new Date(end);
+ begin.setDate(begin.getDate()-count+1);
+ const keys=[];
+ for(let d=new Date(begin);d<=end;d.setDate(d.getDate()+1))keys.push(d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'));
+ return keys.map(k=>{
+  const a=transactions.filter(t=>t.date===k),income=sum(a,'income'),expense=sum(a,'expense'),d=new Date(k+'T12:00:00');
+  return {k,label:d.toLocaleDateString('ru-RU',{day:'2-digit',month:'short'}).replace('.',''),income,expense,net:moneyRound(income-expense),hasData:a.length>0,kind:'day'};
+ });
 }
 function chartTooltipHtml(v){
- return '<strong>'+esc(monthLabel(v.k)+' '+v.k.slice(0,4))+'</strong>'+
+ return '<strong>'+esc(v.label+(v.kind==='month'?' '+v.k.slice(0,4):''))+'</strong>'+
  '<div class="tip-income">Доходы: '+fmt(v.income)+'</div>'+
  '<div class="tip-expense">Расходы: '+fmt(v.expense)+'</div>'+
- '<div class="tip-net">Баланс месяца: '+fmt(v.net)+'</div>';
+ '<div class="tip-net">'+(v.kind==='month'?'Баланс месяца':'Баланс дня')+': '+fmt(v.net)+'</div>';
 }
-function renderSmoothLineChart(targetId,values){
+function renderSmoothLineChart(targetId,values,period=chartPeriod){
  const root=document.getElementById(targetId);if(!root)return;
- if(!values.some(v=>v.hasData)){
-  root.innerHTML='<div class="chart-empty">Пока нет операций за эти 6 месяцев. Добавьте доход или расход — график появится здесь.</div>';return;
- }
- const W=600,H=226,L=43,R=16,T=16,B=31,plotW=W-L-R,plotH=H-T-B;
- const all=values.flatMap(v=>[v.income,v.expense,v.net]),lo=Math.min(0,...all),hi=Math.max(1,...all);
- const pad=(hi-lo)*.12||1,min=lo-pad,max=hi+pad;
- const x=i=>L+(values.length===1?plotW/2:i*plotW/(values.length-1));
- const y=n=>T+(max-n)/(max-min)*plotH;
- const pathFor=key=>values.map((v,i)=>({x:x(i),y:y(v[key])})).reduce((acc,p,i,a)=>{
-  if(i===0)return 'M '+p.x+' '+p.y;
-  const prev=a[i-1],mid=(prev.x+p.x)/2;
-  return acc+' C '+mid+' '+prev.y+', '+mid+' '+p.y+', '+p.x+' '+p.y;
- },'');
+ if(!values.some(v=>v.hasData)){root.innerHTML='<div class="chart-empty">За выбранный период операций нет. Добавьте доход или расход — график появится здесь.</div>';return}
+ const W=600,H=226,L=period==='6m'?43:48,R=16,T=16,B=31,plotW=W-L-R,plotH=H-T-B;
+ const all=values.flatMap(v=>[v.income,v.expense,v.net]),lo=Math.min(0,...all),hi=Math.max(1,...all),pad=(hi-lo)*.12||1,min=lo-pad,max=hi+pad;
+ const x=i=>L+(values.length===1?plotW/2:i*plotW/(values.length-1)),y=n=>T+(max-n)/(max-min)*plotH;
+ const pathFor=key=>values.map((v,i)=>({x:x(i),y:y(v[key])})).reduce((acc,p,i,a)=>{if(i===0)return 'M '+p.x+' '+p.y;const prev=a[i-1],mid=(prev.x+p.x)/2;return acc+' C '+mid+' '+prev.y+', '+mid+' '+p.y+', '+p.x+' '+p.y},'');
  const grid=[0,1,2,3].map(i=>{const yy=T+plotH*i/3,val=max-(max-min)*i/3;return '<line class="grid-line" x1="'+L+'" y1="'+yy+'" x2="'+(W-R)+'" y2="'+yy+'"/><text class="axis-label" x="'+(L-7)+'" y="'+(yy+3)+'" text-anchor="end">'+esc(shortChartAmount(val))+'</text>'}).join('');
- const labels=values.map((v,i)=>'<text class="axis-label" x="'+x(i)+'" y="'+(H-9)+'" text-anchor="middle">'+esc(monthLabel(v.k))+'</text>').join('');
+ const labelIndexes=new Set();
+ if(values.length<=7)values.forEach((v,i)=>labelIndexes.add(i));else{labelIndexes.add(0);labelIndexes.add(values.length-1);const step=Math.ceil(values.length/6);values.forEach((v,i)=>{if(i>0&&i<values.length-1&&i%step===0)labelIndexes.add(i)})}
+ const labels=values.map((v,i)=>labelIndexes.has(i)?'<text class="axis-label" x="'+x(i)+'" y="'+(H-9)+'" text-anchor="middle">'+esc(v.label)+'</text>':'').join('');
  const series=[['income','series-income','point-income'],['expense','series-expense','point-expense'],['net','series-net','point-net']];
- const lines=series.map(([key,cls,pointCls])=>'<path class="series-line '+cls+'" d="'+pathFor(key)+'"/>').join('');
- const points=values.map((v,i)=>series.map(([key,cls,pointCls])=>'<circle class="line-point '+pointCls+'" cx="'+x(i)+'" cy="'+y(v[key])+'" r="3.5"/><circle class="point-hit" data-index="'+i+'" data-series="'+key+'" cx="'+x(i)+'" cy="'+y(v[key])+'" r="13" tabindex="0" role="button" aria-label="'+esc(monthLabel(v.k)+' '+v.k.slice(0,4)+', '+(key==='income'?'доходы':key==='expense'?'расходы':'баланс')+' '+fmt(v[key]))+'"/>').join('')).join('');
- root.innerHTML='<div class="line-chart-wrap"><svg class="line-chart" viewBox="0 0 '+W+' '+H+'" role="group" aria-label="График доходов, расходов и месячного баланса за шесть месяцев">'+grid+lines+points+labels+'</svg><div class="chart-tooltip" aria-live="polite"></div></div><div class="chart-legend"><span><i class="legend-income"></i>Доходы</span><span><i class="legend-expense"></i>Расходы</span><span><i class="legend-net"></i>Баланс</span></div>';
+ const lines=series.map(([key,cls])=>'<path class="series-line '+cls+'" d="'+pathFor(key)+'"/>').join('');
+ const points=values.map((v,i)=>series.map(([key,cls,pointCls])=>'<circle class="line-point '+pointCls+'" cx="'+x(i)+'" cy="'+y(v[key])+'" r="3.5"/><circle class="point-hit" data-index="'+i+'" data-series="'+key+'" cx="'+x(i)+'" cy="'+y(v[key])+'" r="13" tabindex="0" role="button" aria-label="'+esc(v.label+(v.kind==='month'?' '+v.k.slice(0,4):'')+', '+(key==='income'?'доходы':key==='expense'?'расходы':'баланс')+' '+fmt(v[key]))+'"/>').join('')).join('');
+ root.innerHTML='<div class="line-chart-wrap"><svg class="line-chart" viewBox="0 0 '+W+' '+H+'" role="group" aria-label="График доходов, расходов и баланса за выбранный период">'+grid+lines+points+labels+'</svg><div class="chart-tooltip" aria-live="polite"></div></div><div class="chart-legend"><span><i class="legend-income"></i>Доходы</span><span><i class="legend-expense"></i>Расходы</span><span><i class="legend-net"></i>Баланс</span></div>';
  const wrap=root.querySelector('.line-chart-wrap'),svg=root.querySelector('svg'),tip=root.querySelector('.chart-tooltip');
- let activeIndex=-1;
- const showTip=(index,seriesKey,clientX,clientY)=>{
-  const v=values[index];if(!v)return;activeIndex=index;tip.innerHTML=chartTooltipHtml(v);tip.classList.add('visible');
-  const box=wrap.getBoundingClientRect(),sx=clientX==null?box.width*(x(index)/W):clientX-box.left,sy=clientY==null?24:clientY-box.top;
-  const left=Math.max(5,Math.min(box.width-tip.offsetWidth-5,sx-tip.offsetWidth/2));
-  tip.style.left=left+'px';tip.style.top=Math.max(2,Math.min(box.height-tip.offsetHeight-4,sy-tip.offsetHeight-16))+'px';
- };
- const hideTip=()=>{tip.classList.remove('visible');activeIndex=-1};
- root.querySelectorAll('.point-hit').forEach(point=>{
-  const index=Number(point.dataset.index),seriesKey=point.dataset.series;
-  point.addEventListener('pointerenter',e=>{if(e.pointerType==='mouse')showTip(index,seriesKey,e.clientX,e.clientY)});
-  point.addEventListener('pointerdown',e=>{e.preventDefault();showTip(index,seriesKey,e.clientX,e.clientY)});
-  point.addEventListener('click',e=>{e.preventDefault();showTip(index,seriesKey,e.clientX,e.clientY)});
-  point.addEventListener('focus',()=>showTip(index,seriesKey));
-  point.addEventListener('keydown',e=>{if(e.key==='Escape')hideTip()});
- });
+ const showTip=(index,seriesKey,clientX,clientY)=>{const v=values[index];if(!v)return;tip.innerHTML=chartTooltipHtml(v);tip.classList.add('visible');const box=wrap.getBoundingClientRect(),sx=clientX==null?box.width*(x(index)/W):clientX-box.left,sy=clientY==null?24:clientY-box.top;tip.style.left=Math.max(5,Math.min(box.width-tip.offsetWidth-5,sx-tip.offsetWidth/2))+'px';tip.style.top=Math.max(2,Math.min(box.height-tip.offsetHeight-4,sy-tip.offsetHeight-16))+'px'};
+ const hideTip=()=>tip.classList.remove('visible');
+ root.querySelectorAll('.point-hit').forEach(point=>{const index=Number(point.dataset.index),key=point.dataset.series;point.addEventListener('pointerenter',e=>{if(e.pointerType==='mouse')showTip(index,key,e.clientX,e.clientY)});point.addEventListener('pointerdown',e=>{e.preventDefault();showTip(index,key,e.clientX,e.clientY)});point.addEventListener('click',e=>{e.preventDefault();showTip(index,key,e.clientX,e.clientY)});point.addEventListener('focus',()=>showTip(index,key));point.addEventListener('keydown',e=>{if(e.key==='Escape')hideTip()})});
  svg.addEventListener('pointerleave',e=>{if(e.pointerType==='mouse')hideTip()});
+}
+function syncChartPeriod(value){
+ chartPeriod=value;
+ document.querySelectorAll('[data-chart-period]').forEach(select=>{select.value=value});
+ renderSmoothLineChart('chart',getChartData(value),value);
+ renderSmoothLineChart('analyticsTrend',getChartData(value),value);
 }
 function renderDashboard(){
  const m=transactions.filter(t=>monthKey(t.date)===currentMonth()),inc=sum(m,'income'),out=sum(m,'expense');
  animateMoneyValue(document.getElementById('balance'),sum(transactions,'income')-sum(transactions,'expense'));
  animateMoneyValue(document.getElementById('monthIncome'),inc,value=>'+'+fmt(value));animateMoneyValue(document.getElementById('monthExpense'),out,value=>'−'+fmt(value));
  document.getElementById('recentList').innerHTML=listHtml(transactions.slice().sort((a,b)=>b.date.localeCompare(a.date)).slice(0,5));
- renderSmoothLineChart('chart',lastSixMonthsData());
+ renderSmoothLineChart('chart',getChartData(chartPeriod),chartPeriod);
 }
 function renderTransactions(){
  const type=document.getElementById('typeFilter').value,month=document.getElementById('monthFilter').value;
@@ -601,7 +602,7 @@ function renderAnalytics(){
  const cats={};m.filter(t=>t.type==='expense').forEach(t=>cats[t.category]=(cats[t.category]||0)+t.amount);
  const sorted=Object.entries(cats).sort((a,b)=>b[1]-a[1]),max=Math.max(1,...sorted.map(x=>x[1]));
  document.getElementById('categories').innerHTML=sorted.length?sorted.map(([name,val])=>`<div class="category-row"><div class="category-icon" data-category="${esc(name)}">${categorySvg(name)}</div><div class="category-name">${esc(name)}</div><div class="track"><div class="fill" style="width:${val/max*100}%"></div></div><div class="category-value">${fmt(val)}</div></div>`).join(''):'<div class="empty">В этом месяце расходов нет</div>';
- renderSmoothLineChart('analyticsTrend',lastSixMonthsData());
+ renderSmoothLineChart('analyticsTrend',getChartData(chartPeriod),chartPeriod);
  const keys=lastSixMonthsData().map(v=>v.k);
  document.getElementById('monthlySummary').innerHTML=keys.map(k=>{let a=transactions.filter(t=>monthKey(t.date)===k),i=sum(a,'income'),o=sum(a,'expense');return `<div class="transaction"><div class="tx-info"><div class="tx-title">${monthLabel(k)} ${k.slice(0,4)}</div><div class="tx-sub">Доходы ${fmt(i)} · Расходы ${fmt(o)}</div></div><div class="tx-amount ${(i-o)>=0?'positive':'negative'}">${fmt(i-o)}</div></div>`}).join('');
 }
@@ -1111,6 +1112,7 @@ function resetSearch(){
 
 document.getElementById('microThreshold').addEventListener('input',renderMicroAnalysis);document.getElementById('microPeriod').addEventListener('change',renderMicroAnalysis);
 document.getElementById('txDate').value=today();fillCategories('expense');renderAll();
+document.querySelectorAll('[data-chart-period]').forEach(select=>select.addEventListener('change',e=>syncChartPeriod(e.target.value)));
 runSearch();
 if('serviceWorker' in navigator && location.protocol.startsWith('http'))navigator.serviceWorker.register('./sw.js').catch(()=>{});
 </script>
