@@ -20,6 +20,15 @@ header{display:flex;justify-content:space-between;align-items:center;padding:18p
 nav{position:fixed;z-index:5;bottom:0;left:0;right:0;padding:10px 18px calc(10px + env(safe-area-inset-bottom));background:#101114ee;backdrop-filter:blur(18px);border-top:1px solid var(--line);display:flex;justify-content:space-around;max-width:760px;margin:auto}nav button{background:transparent;color:var(--muted);padding:7px 8px;font-size:11px}nav button.active{color:var(--accent)}
 .view{display:none}.view.active{display:block}.field{display:flex;flex-direction:column;gap:7px;margin:12px 0}.field label{font-size:13px;color:var(--muted)}input,select{width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:13px;color:var(--text);font:inherit}form .primary{width:100%;margin-top:8px}.filters{display:flex;gap:8px;margin-bottom:12px}.filters select{flex:1;min-width:0;padding:10px;font-size:13px}.notice{border:1px solid #594d2d;background:#242116;border-radius:14px;padding:12px 13px;font-size:12px;line-height:1.5;color:#e8d9a8;margin-bottom:14px}.small-button{padding:8px 10px;font-size:12px}.settings-row{padding:14px 0;border-bottom:1px solid var(--line)}.settings-row:last-child{border:0}.settings-row strong{display:block;margin-bottom:5px}.settings-row p{font-size:13px;color:var(--muted);margin:0 0 10px}.danger{color:var(--red)}.hidden{display:none!important}
 @media(min-width:600px){body{padding-inline:24px}.balance{font-size:40px}}
+
+.goal-card{background:var(--panel2);border-radius:14px;padding:14px;margin:12px 0}
+.goal-head{display:flex;justify-content:space-between;gap:10px;align-items:start}
+.goal-name{font-weight:700;overflow-wrap:anywhere}
+.goal-progress{height:8px;background:var(--line);border-radius:999px;overflow:hidden;margin:12px 0 8px}
+.goal-progress-fill{height:100%;background:var(--green);border-radius:999px}
+.goal-actions{display:flex;flex-wrap:wrap;gap:7px;margin-top:12px}
+.goal-actions button{padding:8px 10px;font-size:12px}
+
 </style>
 </head>
 <body>
@@ -68,6 +77,34 @@ nav{position:fixed;z-index:5;bottom:0;left:0;right:0;padding:10px 18px calc(10px
    <div id="microCategories" style="margin-top:12px"></div>
    <div id="microInsight" class="muted" style="margin-top:10px"></div>
   </div>
+  <div class="card" id="goalsCard">
+   <div class="section-head" style="margin-top:0"><h2>Мои финансовые цели</h2><button class="small-button" type="button" onclick="newGoal()">＋ Добавить</button></div>
+   <p class="muted">Цели и взносы учитываются отдельно от обычных доходов и расходов. Перевод в цель не меняет общий баланс повторно.</p>
+   <div id="goalList"></div>
+   <div id="goalFormWrap" class="hidden">
+    <form id="goalForm">
+     <input id="goalId" type="hidden">
+     <div class="field"><label for="goalName">Название цели</label><input id="goalName" maxlength="70" required placeholder="Например, автомобиль"></div>
+     <div class="field"><label for="goalTarget">Целевая сумма, PLN</label><input id="goalTarget" type="number" min="0.01" step="0.01" required placeholder="30000"></div>
+     <div class="field"><label for="goalSaved">Уже накоплено, PLN</label><input id="goalSaved" type="number" min="0" step="0.01" value="0" required></div>
+     <div class="field"><label for="goalDate">Желаемый срок</label><input id="goalDate" type="date"></div>
+     <button class="primary" type="submit">Сохранить цель</button>
+     <button type="button" onclick="cancelGoalForm()">Отмена</button>
+    </form>
+   </div>
+   <div id="goalContributionWrap" class="hidden">
+    <form id="goalContributionForm">
+     <input id="contributionGoalId" type="hidden">
+     <div class="field"><label for="contributionAmount">Сумма взноса или снятия, PLN</label><input id="contributionAmount" type="number" min="0.01" step="0.01" required placeholder="Например, 200"></div>
+     <div class="field"><label for="contributionType">Операция</label><select id="contributionType"><option value="add">Отложить в цель</option><option value="withdraw">Снять из цели</option></select></div>
+     <div class="field"><label for="contributionDate">Дата</label><input id="contributionDate" type="date" required></div>
+     <div class="field"><label for="contributionNote">Комментарий (необязательно)</label><input id="contributionNote" maxlength="100" placeholder="Например, зарплата"></div>
+     <button class="primary" type="submit">Записать операцию</button>
+     <button type="button" onclick="cancelContributionForm()">Отмена</button>
+    </form>
+   </div>
+  </div>
+
 
   <div class="card"><h2>Итоги за 6 месяцев</h2><div id="monthlySummary"></div></div>
 </section>
@@ -200,7 +237,58 @@ function renderMicroAnalysis(){
  : 'Добавь расходы или измени порог, чтобы увидеть анализ.';
 }
 
-function renderAll(){renderDashboard();renderMonthFilter();renderTransactions();renderAnalytics();renderMicroAnalysis();if(document.getElementById('search'))runSearch()}
+
+const GOALS_KEY='fintrack_goals_v1';
+const CONTRIBUTIONS_KEY='fintrack_goal_contributions_v1';
+function loadJSON(key,fallback){try{return JSON.parse(localStorage.getItem(key)||JSON.stringify(fallback))}catch{return fallback}}
+let goals=loadJSON(GOALS_KEY,[]), goalContributions=loadJSON(CONTRIBUTIONS_KEY,[]);
+function saveGoals(){localStorage.setItem(GOALS_KEY,JSON.stringify(goals));localStorage.setItem(CONTRIBUTIONS_KEY,JSON.stringify(goalContributions));renderGoals();}
+function moneyRound(n){return Math.round((Number(n)||0)*100)/100}
+function goalBalance(g){return moneyRound(Number(g.initial||0)+goalContributions.filter(c=>c.goalId===g.id).reduce((s,c)=>s+(c.type==='withdraw'?-Number(c.amount):Number(c.amount)),0))}
+function goalMonthlyNeed(g){
+ if(!g.deadline)return null;
+ const now=new Date();const [y,m,d]=g.deadline.split('-').map(Number);
+ const end=new Date(y,m-1,d);const months=Math.max(1,(end.getFullYear()-now.getFullYear())*12+end.getMonth()-now.getMonth()+((end.getDate()>now.getDate())?1:0));
+ return Math.max(0,moneyRound((Number(g.target)-goalBalance(g))/months));
+}
+function renderGoals(){
+ const host=document.getElementById('goalList');if(!host)return;
+ if(!goals.length){host.innerHTML='<div class="empty">Пока нет целей. Нажми «Добавить», чтобы создать первую.</div>';return}
+ host.innerHTML=goals.map(g=>{
+  const saved=goalBalance(g),target=Number(g.target)||0,pct=target>0?Math.min(100,Math.max(0,saved/target*100)):0,remaining=Math.max(0,target-saved),need=goalMonthlyNeed(g);
+  const monthStart=currentMonth()+'-01',nextMonth=new Date();nextMonth.setMonth(nextMonth.getMonth()+1);const nextKey=nextMonth.getFullYear()+'-'+String(nextMonth.getMonth()+1).padStart(2,'0');
+  const contributedThisMonth=goalContributions.filter(c=>c.goalId===g.id&&c.type==='add'&&monthKey(c.date)===currentMonth()).reduce((s,c)=>s+Number(c.amount),0);
+  const monthlyIncome=sum(transactions.filter(t=>monthKey(t.date)===currentMonth()),'income');
+  const monthGoalPlan=need===null?null:Math.min(need,Math.max(0,monthlyIncome));
+  return `<div class="goal-card"><div class="goal-head"><div><div class="goal-name">${esc(g.name)}</div><div class="muted">${fmt(saved)} из ${fmt(target)}</div></div><strong>${Math.round(pct)}%</strong></div><div class="goal-progress"><div class="goal-progress-fill" style="width:${pct}%"></div></div><div class="metrics"><div class="metric"><div class="label">Осталось</div><div class="value">${fmt(remaining)}</div></div><div class="metric"><div class="label">Отложено в этом месяце</div><div class="value">${fmt(contributedThisMonth)}</div></div></div><p class="muted">${g.deadline?'Срок: '+esc(g.deadline):'Срок не задан'}${need!==null?' · Нужно в среднем '+fmt(need)+'/мес.':''}</p><div class="goal-actions"><button type="button" onclick="openContribution('${g.id}','add')">＋ Отложить</button><button type="button" onclick="openContribution('${g.id}','withdraw')">− Снять</button><button type="button" onclick="editGoal('${g.id}')">Изменить</button><button type="button" onclick="deleteGoal('${g.id}')">Удалить</button></div></div>`;
+ }).join('');
+}
+function newGoal(){document.getElementById('goalForm').reset();document.getElementById('goalId').value='';document.getElementById('goalSaved').value='0';document.getElementById('goalDate').value='';document.getElementById('goalFormWrap').classList.remove('hidden');document.getElementById('goalContributionWrap').classList.add('hidden')}
+function editGoal(id){const g=goals.find(x=>x.id===id);if(!g)return;document.getElementById('goalId').value=g.id;document.getElementById('goalName').value=g.name;document.getElementById('goalTarget').value=g.target;document.getElementById('goalSaved').value=g.initial||0;document.getElementById('goalDate').value=g.deadline||'';document.getElementById('goalFormWrap').classList.remove('hidden');document.getElementById('goalContributionWrap').classList.add('hidden')}
+function cancelGoalForm(){document.getElementById('goalFormWrap').classList.add('hidden')}
+function deleteGoal(id){if(!confirm('Удалить цель и историю её взносов?'))return;goals=goals.filter(g=>g.id!==id);goalContributions=goalContributions.filter(c=>c.goalId!==id);saveGoals()}
+function openContribution(id,type){document.getElementById('contributionGoalId').value=id;document.getElementById('contributionType').value=type;document.getElementById('contributionAmount').value='';document.getElementById('contributionDate').value=today();document.getElementById('contributionNote').value='';document.getElementById('goalContributionWrap').classList.remove('hidden');document.getElementById('goalFormWrap').classList.add('hidden')}
+function cancelContributionForm(){document.getElementById('goalContributionWrap').classList.add('hidden')}
+document.getElementById('goalForm').addEventListener('submit',e=>{
+ e.preventDefault();const id=document.getElementById('goalId').value||crypto.randomUUID();
+ const name=document.getElementById('goalName').value.trim(),target=Number(document.getElementById('goalTarget').value),initial=Number(document.getElementById('goalSaved').value),deadline=document.getElementById('goalDate').value;
+ if(!name||!Number.isFinite(target)||target<=0||!Number.isFinite(initial)||initial<0)return alert('Проверь название и суммы цели.');
+ if(deadline&&deadline<today())return alert('Срок цели не может быть в прошлом.');
+ const old=goals.find(g=>g.id===id);
+ if(old){goals=goals.map(g=>g.id===id?{...g,name,target,initial,deadline}:g)}
+ else goals.push({id,name,target,initial,deadline,createdAt:new Date().toISOString()});
+ saveGoals();cancelGoalForm();
+});
+document.getElementById('goalContributionForm').addEventListener('submit',e=>{
+ e.preventDefault();const goalId=document.getElementById('contributionGoalId').value,amount=Number(document.getElementById('contributionAmount').value),type=document.getElementById('contributionType').value,date=document.getElementById('contributionDate').value,note=document.getElementById('contributionNote').value.trim();
+ const g=goals.find(x=>x.id===goalId);if(!g)return alert('Цель не найдена.');
+ if(!Number.isFinite(amount)||amount<=0||!date)return alert('Введите корректную сумму и дату.');
+ if(type==='withdraw'&&amount>goalBalance(g))return alert('Нельзя снять больше, чем накоплено в этой цели.');
+ goalContributions.push({id:crypto.randomUUID(),goalId,amount:moneyRound(amount),type,date,note});
+ saveGoals();cancelContributionForm();
+});
+
+function renderAll(){renderDashboard();renderMonthFilter();renderTransactions();renderAnalytics();renderGoals();renderMicroAnalysis();if(document.getElementById('search'))runSearch()}
 function showView(id){document.querySelectorAll('.view').forEach(v=>v.classList.toggle('active',v.id===id));document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('active',b.dataset.view===id));window.scrollTo(0,0)}
 function fillCategories(type,selected){const sel=document.getElementById('txCategory');sel.innerHTML=categories[type].map(c=>`<option>${c}</option>`).join('');if(selected&&categories[type].includes(selected))sel.value=selected}
 function openForm(type){resetForm();document.getElementById('txType').value=type;fillCategories(type);document.getElementById('formHeading').textContent=type==='income'?'Добавить доход':'Добавить расход';showView('add')}
