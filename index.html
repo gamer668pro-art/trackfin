@@ -17,7 +17,7 @@ header{display:flex;justify-content:space-between;align-items:center;padding:18p
 .actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:14px 0 22px}button,.file-button{font:inherit;border:0;border-radius:13px;padding:13px 14px;background:var(--panel2);color:var(--text);cursor:pointer}.primary{background:var(--accent);color:#171321;font-weight:700}.action-income{border:1px solid #326b50}.action-expense{border:1px solid #704040}
 .section-head{display:flex;justify-content:space-between;align-items:center;margin:22px 2px 12px}.section-head h2{margin:0}.transaction{display:flex;align-items:center;gap:12px;padding:13px 0;border-bottom:1px solid var(--line)}.transaction:last-child{border-bottom:0}.tx-icon{width:42px;height:42px;display:grid;place-items:center;border-radius:14px;background:var(--panel2);font-size:18px}.tx-info{flex:1;min-width:0}.tx-title{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.tx-sub{font-size:12px;color:var(--muted);margin-top:4px}.tx-amount{font-weight:700;white-space:nowrap}.empty{color:var(--muted);font-size:14px;padding:20px 0;text-align:center}
 .bar-chart{height:140px;display:flex;align-items:end;gap:8px;padding:12px 2px 0}.bar-col{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:end;height:100%;gap:7px;min-width:0}.bar{width:min(28px,80%);min-height:3px;border-radius:7px 7px 3px 3px;background:var(--accent)}.bar-label{font-size:10px;color:var(--muted)}.category-row{display:flex;align-items:center;gap:10px;margin:13px 0}.category-name{flex:1;font-size:13px}.track{height:7px;background:var(--panel2);border-radius:10px;flex:1;overflow:hidden}.fill{height:100%;background:var(--accent);border-radius:10px}.category-value{font-size:12px;color:var(--muted);min-width:72px;text-align:right}
-nav{position:fixed;z-index:5;bottom:0;left:0;right:0;padding:10px 18px calc(10px + env(safe-area-inset-bottom));background:#101114ee;backdrop-filter:blur(18px);border-top:1px solid var(--line);display:flex;justify-content:space-around;max-width:760px;margin:auto}nav button{background:transparent;color:var(--muted);padding:7px 12px;font-size:12px}nav button.active{color:var(--accent)}
+nav{position:fixed;z-index:5;bottom:0;left:0;right:0;padding:10px 18px calc(10px + env(safe-area-inset-bottom));background:#101114ee;backdrop-filter:blur(18px);border-top:1px solid var(--line);display:flex;justify-content:space-around;max-width:760px;margin:auto}nav button{background:transparent;color:var(--muted);padding:7px 8px;font-size:11px}nav button.active{color:var(--accent)}
 .view{display:none}.view.active{display:block}.field{display:flex;flex-direction:column;gap:7px;margin:12px 0}.field label{font-size:13px;color:var(--muted)}input,select{width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:13px;color:var(--text);font:inherit}form .primary{width:100%;margin-top:8px}.filters{display:flex;gap:8px;margin-bottom:12px}.filters select{flex:1;min-width:0;padding:10px;font-size:13px}.notice{border:1px solid #594d2d;background:#242116;border-radius:14px;padding:12px 13px;font-size:12px;line-height:1.5;color:#e8d9a8;margin-bottom:14px}.small-button{padding:8px 10px;font-size:12px}.settings-row{padding:14px 0;border-bottom:1px solid var(--line)}.settings-row:last-child{border:0}.settings-row strong{display:block;margin-bottom:5px}.settings-row p{font-size:13px;color:var(--muted);margin:0 0 10px}.danger{color:var(--red)}.hidden{display:none!important}
 @media(min-width:600px){body{padding-inline:24px}.balance{font-size:40px}}
 </style>
@@ -57,6 +57,31 @@ nav{position:fixed;z-index:5;bottom:0;left:0;right:0;padding:10px 18px calc(10px
  <div class="card"><h2>Итоги за 6 месяцев</h2><div id="monthlySummary"></div></div>
 </section>
 
+
+<section id="search" class="view">
+ <div class="section-head"><h2>Поиск транзакций</h2><button class="small-button" onclick="resetSearch()">Сбросить</button></div>
+ <div class="card">
+  <div class="field"><label for="searchQuery">Название магазина или описание</label><input id="searchQuery" type="search" placeholder="Например, Żabka, Biedronka, аренда"></div>
+  <div class="metrics">
+   <div class="field"><label for="searchFrom">Дата с</label><input id="searchFrom" type="date" value="2026-10-01"></div>
+   <div class="field"><label for="searchTo">Дата по</label><input id="searchTo" type="date" value="2026-10-14"></div>
+   <div class="field"><label for="searchMin">Сумма от, PLN</label><input id="searchMin" type="number" min="0" step="0.01" placeholder="Без ограничения"></div>
+   <div class="field"><label for="searchMax">Сумма до, PLN</label><input id="searchMax" type="number" min="0" step="0.01" placeholder="Без ограничения"></div>
+  </div>
+  <div class="field"><label for="searchType">Тип операции</label><select id="searchType"><option value="all">Все операции</option><option value="expense">Только расходы</option><option value="income">Только доходы</option></select></div>
+  <button class="primary" type="button" onclick="runSearch()">Найти операции</button>
+  <p class="muted">Поиск выполняется по операциям, сохранённым на этом устройстве.</p>
+ </div>
+ <div class="card">
+  <div class="metrics">
+   <div class="metric"><div class="label">Найдено операций</div><div class="value" id="searchCount">0</div></div>
+   <div class="metric"><div class="label">Итоговая сумма</div><div class="value" id="searchTotal">0,00 zł</div></div>
+  </div>
+  <div id="searchBreakdown" class="muted" style="margin-top:12px">Введите параметры поиска.</div>
+ </div>
+ <div class="card" id="searchResults"><div class="empty">Нет результатов поиска</div></div>
+</section>
+
 <section id="add" class="view">
  <div class="section-head"><h2 id="formHeading">Новая операция</h2></div>
  <div class="card"><form id="txForm">
@@ -85,6 +110,7 @@ nav{position:fixed;z-index:5;bottom:0;left:0;right:0;padding:10px 18px calc(10px
 <button class="active" data-view="dashboard" onclick="showView('dashboard')">Обзор</button>
 <button data-view="transactions" onclick="showView('transactions')">Операции</button>
 <button data-view="analytics" onclick="showView('analytics')">Статистика</button>
+<button data-view="search" onclick="showView('search')">Поиск</button>
 <button data-view="settings" onclick="showView('settings')">Настройки</button>
 </nav>
 <script>
@@ -134,7 +160,7 @@ function renderMonthFilter(){
  sel.innerHTML='<option value="all">Все даты</option>'+keys.map(k=>`<option value="${k}">${monthLabel(k)} ${k.slice(0,4)}</option>`).join('');
  if(keys.includes(old))sel.value=old;
 }
-function renderAll(){renderDashboard();renderMonthFilter();renderTransactions();renderAnalytics()}
+function renderAll(){renderDashboard();renderMonthFilter();renderTransactions();renderAnalytics();if(document.getElementById('search'))runSearch()}
 function showView(id){document.querySelectorAll('.view').forEach(v=>v.classList.toggle('active',v.id===id));document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('active',b.dataset.view===id));window.scrollTo(0,0)}
 function fillCategories(type,selected){const sel=document.getElementById('txCategory');sel.innerHTML=categories[type].map(c=>`<option>${c}</option>`).join('');if(selected&&categories[type].includes(selected))sel.value=selected}
 function openForm(type){resetForm();document.getElementById('txType').value=type;fillCategories(type);document.getElementById('formHeading').textContent=type==='income'?'Добавить доход':'Добавить расход';showView('add')}
@@ -161,7 +187,49 @@ function importCSV(event){
  }catch(err){alert('Не удалось импортировать файл: '+err.message)}finally{event.target.value=''}};
  reader.readAsText(file,'utf-8')
 }
+
+function runSearch(){
+ const q=document.getElementById('searchQuery').value.trim().toLocaleLowerCase();
+ const from=document.getElementById('searchFrom').value;
+ const to=document.getElementById('searchTo').value;
+ const minRaw=document.getElementById('searchMin').value;
+ const maxRaw=document.getElementById('searchMax').value;
+ const min=minRaw===''?null:Number(minRaw), max=maxRaw===''?null:Number(maxRaw);
+ const type=document.getElementById('searchType').value;
+ if(from&&to&&from>to){alert('Дата «с» не может быть позже даты «по».');return}
+ if(min!==null&&(!Number.isFinite(min)||min<0)){alert('Введите корректную минимальную сумму.');return}
+ if(max!==null&&(!Number.isFinite(max)||max<0)){alert('Введите корректную максимальную сумму.');return}
+ if(min!==null&&max!==null&&min>max){alert('Минимальная сумма не может быть больше максимальной.');return}
+ const found=transactions.filter(t=>{
+   const hay=(String(t.description||'')+' '+String(t.category||'')).toLocaleLowerCase();
+   return (!q||hay.includes(q))&&(!from||t.date>=from)&&(!to||t.date<=to)&&
+     (min===null||Number(t.amount)>=min)&&(max===null||Number(t.amount)<=max)&&
+     (type==='all'||t.type===type);
+ }).sort((a,b)=>b.date.localeCompare(a.date));
+ const total=found.reduce((s,t)=>s+Number(t.amount||0),0);
+ document.getElementById('searchCount').textContent=String(found.length);
+ document.getElementById('searchTotal').textContent=fmt(total);
+ document.getElementById('searchBreakdown').textContent=type==='all'
+   ? 'Сумма включает доходы и расходы без взаимного вычитания.'
+   : (type==='income'?'Итог по найденным доходам.':'Итог по найденным расходам.');
+ document.getElementById('searchResults').innerHTML=listHtml(found);
+}
+function resetSearch(){
+ document.getElementById('searchQuery').value='';
+ document.getElementById('searchFrom').value='2026-10-01';
+ document.getElementById('searchTo').value='2026-10-14';
+ document.getElementById('searchMin').value='';
+ document.getElementById('searchMax').value='';
+ document.getElementById('searchType').value='all';
+ runSearch();
+}
+['searchQuery','searchFrom','searchTo','searchMin','searchMax','searchType'].forEach(id=>{
+ const el=document.getElementById(id);
+ if(el)el.addEventListener(el.tagName==='INPUT'?'input':'change',()=>{if(document.getElementById('search').classList.contains('active'))runSearch()});
+});
+
 document.getElementById('txDate').value=today();fillCategories('expense');renderAll();
+runSearch();
 if('serviceWorker' in navigator && location.protocol.startsWith('http'))navigator.serviceWorker.register('./sw.js').catch(()=>{});
 </script>
 </body>
