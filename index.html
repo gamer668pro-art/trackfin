@@ -513,15 +513,27 @@ function importPDF(event){
   pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
   const bytes=await file.arrayBuffer();
   const pdf=await pdfjsLib.getDocument({data:bytes, disableWorker:true, useSystemFonts:true}).promise;
-  // Erste PDF exports each table cell on its own text line. Preserve PDF.js reading order
-  // instead of grouping only by vertical coordinate (which separated dates from amounts).
+  // Group PDF.js text fragments by their visual row and sort each row left-to-right.
+  // In Erste's PDF, date, description, amount and balance are separate positioned fragments.
   const allLines=[];
   for(let pageNo=1;pageNo<=pdf.numPages;pageNo++){
    const page=await pdf.getPage(pageNo);
    const content=await page.getTextContent();
-   for(const it of content.items){
-    const str=String(it.str||'').replace(/\s+/g,' ').trim();
-    if(str)allLines.push(str);
+   const fragments=content.items.map(it=>({
+    str:String(it.str||'').replace(/\s+/g,' ').trim(),
+    x:Number(it.transform?.[4]||0), y:Number(it.transform?.[5]||0)
+   })).filter(it=>it.str).sort((a,b)=>b.y-a.y||a.x-b.x);
+   const rows=[];
+   for(const frag of fragments){
+    let row=rows.find(r=>Math.abs(r.y-frag.y)<3);
+    if(!row){row={y:frag.y,items:[]};rows.push(row);}
+    row.items.push(frag);
+   }
+   rows.sort((a,b)=>b.y-a.y);
+   for(const row of rows){
+    row.items.sort((a,b)=>a.x-b.x);
+    const line=row.items.map(it=>it.str).join(' ').replace(/\s+/g,' ').trim();
+    if(line)allLines.push(line);
    }
   }
   const existingCounts=new Map();
@@ -530,6 +542,7 @@ function importPDF(event){
   let added=0,duplicates=0,invalid=0,detected=0;
   const datePattern=/^(\d{1,2}\s+[\p{L}.]+\s+\d{4}|\d{1,2}[./-]\d{1,2}[./-]\d{4})(?:\s+(.+))?$/u;
   const moneyLine=/^(-?\s*\d[\d\s\u00a0.,]*)\s*PLN\s*$/iu;
+  const rowMoneyPattern=/(-?\s*\d[\d\s\u00a0.,]*)\s*PLN/giu;
   const parseMoney=v=>{
    let x=String(v).replace(/[\s\u00a0]/g,'').replace(/PLN/ig,'');
    if(x.includes(',')&&x.includes('.'))x=x.lastIndexOf(',')>x.lastIndexOf('.')?x.replace(/\./g,'').replace(',','.'):x.replace(/,/g,'');
@@ -540,6 +553,9 @@ function importPDF(event){
   for(const line of allLines){
    const dm=line.match(datePattern);
    if(dm){if(current)records.push(current);current={dateRaw:dm[1],lines:[]};if(dm[2])current.lines.push(dm[2]);continue;}
+   // Some PDFs place the date in one fragment and the rest of the same row in the next.
+   const dateAtStart=line.match(/^(\d{1,2}\s+[\p{L}.]+\s+\d{4}|\d{1,2}[./-]\d{1,2}[./-]\d{4})\s*(.*)$/u);
+   if(dateAtStart){if(current)records.push(current);current={dateRaw:dateAtStart[1],lines:[]};if(dateAtStart[2])current.lines.push(dateAtStart[2]);continue;}
    if(current)current.lines.push(line);
   }
   if(current)records.push(current);
@@ -548,15 +564,24 @@ function importPDF(event){
    if(!date){invalid++;continue;}
    // The first standalone PLN amount is the transaction amount; the next is the balance.
    // Descriptions may themselves mention a PLN amount, but those lines contain extra text.
-   const amountIndexes=[];
-   rec.lines.forEach((line,i)=>{if(moneyLine.test(line))amountIndexes.push(i);});
-   if(!amountIndexes.length){invalid++;continue;}
-   const amountIndex=amountIndexes[0];
-   const amount=parseMoney(rec.lines[amountIndex].match(moneyLine)[1]);
+   const joined=rec.lines.join(' ').replace(/\s+/g,' ').trim();
+   const moneyMatches=[...joined.matchAll(rowMoneyPattern)];
+   let amount,desc;
+   if(moneyMatches.length>=2){
+    // In Erste's table the final two PLN values are transaction amount and balance.
+    const m=moneyMatches[moneyMatches.length-2];
+    amount=parseMoney(m[1]);
+    desc=joined.slice(0,m.index).trim();
+   }else{
+    const amountIndexes=[];
+    rec.lines.forEach((line,i)=>{if(moneyLine.test(line))amountIndexes.push(i);});
+    if(!amountIndexes.length){invalid++;continue;}
+    const amountIndex=amountIndexes[0];
+    amount=parseMoney(rec.lines[amountIndex].match(moneyLine)[1]);
+    desc=rec.lines.slice(0,amountIndex).filter(x=>!/^Дата зарахування$/iu.test(x)&&!/^Дата операції$/iu.test(x)&&!/^Операція$/iu.test(x)&&!/^Сума$/iu.test(x)&&!/^Баланс$/iu.test(x)).join(' ').replace(/\s+/g,' ').trim();
+   }
    if(!Number.isFinite(amount)||amount===0){invalid++;continue;}
-   const desc=rec.lines.slice(0,amountIndex)
-    .filter(x=>!/^Дата зарахування$/iu.test(x)&&!/^Дата операції$/iu.test(x)&&!/^Операція$/iu.test(x)&&!/^Сума$/iu.test(x)&&!/^Баланс$/iu.test(x))
-    .join(' ').replace(/\s+/g,' ').trim()||'Операция из выписки';
+   desc=(desc||'').replace(/^(Дата операції|Операція|Сума|Баланс)\s*/iu,'').trim()||'Операция из выписки';
    const item={id:crypto.randomUUID(),type:amount<0?'expense':'income',amount:Math.round(Math.abs(amount)*100)/100,category:'Другое',date,description:desc};
    const fp=transactionFingerprint(item);const occurrence=(importCounts.get(fp)||0)+1;importCounts.set(fp,occurrence);
    if(occurrence<=(existingCounts.get(fp)||0)){duplicates++;continue;}
