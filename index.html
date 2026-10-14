@@ -513,63 +513,60 @@ function importPDF(event){
   pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
   const bytes=await file.arrayBuffer();
   const pdf=await pdfjsLib.getDocument({data:bytes, disableWorker:true, useSystemFonts:true}).promise;
-  let allLines=[];
+  // Erste PDF exports each table cell on its own text line. Preserve PDF.js reading order
+  // instead of grouping only by vertical coordinate (which separated dates from amounts).
+  const allLines=[];
   for(let pageNo=1;pageNo<=pdf.numPages;pageNo++){
    const page=await pdf.getPage(pageNo);
    const content=await page.getTextContent();
-   const rows=[];
    for(const it of content.items){
-    if(!it.str||!it.str.trim()||!it.transform)continue;
-    const y=it.transform[5],x=it.transform[4];
-    let row=rows.find(r=>Math.abs(r.y-y)<8);
-    if(!row){row={y,parts:[]};rows.push(row);}
-    row.parts.push({x,text:it.str.trim()});
-   }
-   rows.sort((a,b)=>b.y-a.y);
-   for(const row of rows){
-    row.parts.sort((a,b)=>a.x-b.x);
-    const line=row.parts.map(p=>p.text).join(' ').replace(/\s+/g,' ').trim();
-    if(line)allLines.push(line);
+    const str=String(it.str||'').replace(/\s+/g,' ').trim();
+    if(str)allLines.push(str);
    }
   }
   const existingCounts=new Map();
-  for(const t of transactions){
-   const fp=transactionFingerprint(t);
-   existingCounts.set(fp,(existingCounts.get(fp)||0)+1);
-  }
+  for(const t of transactions){const fp=transactionFingerprint(t);existingCounts.set(fp,(existingCounts.get(fp)||0)+1);}
   const importCounts=new Map();
-  let added=0,duplicates=0,invalid=0;
-  const datePattern=/^(\d{1,2}\s+[\p{L}\.]+\s+\d{4}|\d{1,2}[./-]\d{1,2}[./-]\d{4})/u;
+  let added=0,duplicates=0,invalid=0,detected=0;
+  const datePattern=/^(\d{1,2}\s+[\p{L}.]+\s+\d{4}|\d{1,2}[./-]\d{1,2}[./-]\d{4})(?:\s+(.+))?$/u;
+  const moneyLine=/^(-?\s*\d[\d\s\u00a0.,]*)\s*PLN\s*$/iu;
   const parseMoney=v=>{
    let x=String(v).replace(/[\s\u00a0]/g,'').replace(/PLN/ig,'');
    if(x.includes(',')&&x.includes('.'))x=x.lastIndexOf(',')>x.lastIndexOf('.')?x.replace(/\./g,'').replace(',','.'):x.replace(/,/g,'');
    else if(x.includes(','))x=x.replace(',','.');
    return Number(x);
   };
+  const records=[];let current=null;
   for(const line of allLines){
    const dm=line.match(datePattern);
-   if(!dm)continue;
-   const date=parseBankDate(dm[1]);
-   const tail=line.slice(dm[0].length).trim();
-   const amounts=[...tail.matchAll(/(-?\s*\d[\d\s.,]*)\s*PLN\b/giu)];
-   if(!date||amounts.length<2){invalid++;continue;}
-   const amount=parseMoney(amounts[0][1]);
-   if(!Number.isFinite(amount)||amount===0){invalid++;continue;}
-   const desc=tail.slice(0,amounts[0].index).replace(/\s+/g,' ').trim()||'Операция из выписки';
-   const item={id:crypto.randomUUID(),type:amount<0?'expense':'income',amount:Math.round(Math.abs(amount)*100)/100,category:'Другое',date,description:desc};
-   const fp=transactionFingerprint(item);
-   const occurrence=(importCounts.get(fp)||0)+1;
-   importCounts.set(fp,occurrence);
-   // Treat identical-looking rows as separate operations when they occur multiple times in the same statement.
-   // On re-import, skip only as many matching occurrences as are already stored.
-   if(occurrence<=(existingCounts.get(fp)||0)){duplicates++;continue;}
-   transactions.push(item);added++;
+   if(dm){if(current)records.push(current);current={dateRaw:dm[1],lines:[]};if(dm[2])current.lines.push(dm[2]);continue;}
+   if(current)current.lines.push(line);
   }
-  if(!added&&!duplicates&&!invalid)throw Error('Не найдены строки операций. Возможно, формат PDF отличается или это скан без текстового слоя.');
+  if(current)records.push(current);
+  for(const rec of records){
+   const date=parseBankDate(rec.dateRaw);
+   if(!date){invalid++;continue;}
+   // The first standalone PLN amount is the transaction amount; the next is the balance.
+   // Descriptions may themselves mention a PLN amount, but those lines contain extra text.
+   const amountIndexes=[];
+   rec.lines.forEach((line,i)=>{if(moneyLine.test(line))amountIndexes.push(i);});
+   if(!amountIndexes.length){invalid++;continue;}
+   const amountIndex=amountIndexes[0];
+   const amount=parseMoney(rec.lines[amountIndex].match(moneyLine)[1]);
+   if(!Number.isFinite(amount)||amount===0){invalid++;continue;}
+   const desc=rec.lines.slice(0,amountIndex)
+    .filter(x=>!/^Дата зарахування$/iu.test(x)&&!/^Дата операції$/iu.test(x)&&!/^Операція$/iu.test(x)&&!/^Сума$/iu.test(x)&&!/^Баланс$/iu.test(x))
+    .join(' ').replace(/\s+/g,' ').trim()||'Операция из выписки';
+   const item={id:crypto.randomUUID(),type:amount<0?'expense':'income',amount:Math.round(Math.abs(amount)*100)/100,category:'Другое',date,description:desc};
+   const fp=transactionFingerprint(item);const occurrence=(importCounts.get(fp)||0)+1;importCounts.set(fp,occurrence);
+   if(occurrence<=(existingCounts.get(fp)||0)){duplicates++;continue;}
+   transactions.push(item);added++;detected++;
+  }
+  if(!added&&!duplicates)throw Error(`Не удалось распознать операции. Строк с датами найдено: ${records.length}; строк с проблемами: ${invalid}. Проверьте формат PDF или пришлите этот файл разработчику.`);
   saveData();
-  alert(`Импорт PDF завершён.\nСтраниц: ${pdf.numPages}\nДобавлено операций: ${added}\nПропущено как дубликаты: ${duplicates}\nСтрок, требующих проверки: ${invalid}\n\nПроверьте несколько операций в разделе «Операции». Неопределённые описания сохранены как есть.`);
+  alert(`Импорт PDF завершён.\nСтраниц: ${pdf.numPages}\nНайдено операций: ${records.length}\nДобавлено операций: ${added}\nПропущено как дубликаты: ${duplicates}\nСтрок, требующих проверки: ${invalid}\n\nПроверьте несколько операций в разделе «Операции». Описания сохранены из выписки.`);
   showView('transactions');
- }catch(err){console.error('FinTrack PDF import error:',err);alert('Не удалось обработать PDF. Причина: '+(err?.message||String(err))+'\n\nПроверьте, что заменён именно index.html, затем обновите страницу Ctrl+F5. Если ошибка повторится, пришлите текст этого сообщения.');}finally{event.target.value='';}})();
+ }catch(err){console.error('FinTrack PDF import error:',err);alert('Не удалось обработать PDF. Причина: '+(err?.message||String(err))+'\n\nПроверьте подключение к интернету для загрузки PDF-модуля.');}finally{event.target.value='';}})();
 }
 function runSearch(){
  const q=document.getElementById('searchQuery').value.trim().toLocaleLowerCase();
