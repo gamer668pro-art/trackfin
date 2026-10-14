@@ -512,7 +512,7 @@ function importPDF(event){
  (async()=>{try{
   pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
   const bytes=await file.arrayBuffer();
-  const pdf=await pdfjsLib.getDocument({data:bytes}).promise;
+  const pdf=await pdfjsLib.getDocument({data:bytes, disableWorker:true, useSystemFonts:true}).promise;
   let allLines=[];
   for(let pageNo=1;pageNo<=pdf.numPages;pageNo++){
    const page=await pdf.getPage(pageNo);
@@ -521,7 +521,7 @@ function importPDF(event){
    for(const it of content.items){
     if(!it.str||!it.str.trim()||!it.transform)continue;
     const y=it.transform[5],x=it.transform[4];
-    let row=rows.find(r=>Math.abs(r.y-y)<4.5);
+    let row=rows.find(r=>Math.abs(r.y-y)<8);
     if(!row){row={y,parts:[]};rows.push(row);}
     row.parts.push({x,text:it.str.trim()});
    }
@@ -569,7 +569,7 @@ function importPDF(event){
   saveData();
   alert(`Импорт PDF завершён.\nСтраниц: ${pdf.numPages}\nДобавлено операций: ${added}\nПропущено как дубликаты: ${duplicates}\nСтрок, требующих проверки: ${invalid}\n\nПроверьте несколько операций в разделе «Операции». Неопределённые описания сохранены как есть.`);
   showView('transactions');
- }catch(err){alert('Не удалось обработать PDF: '+(err?.message||err));}finally{event.target.value='';}})();
+ }catch(err){console.error('FinTrack PDF import error:',err);alert('Не удалось обработать PDF. Причина: '+(err?.message||String(err))+'\n\nПроверьте, что заменён именно index.html, затем обновите страницу Ctrl+F5. Если ошибка повторится, пришлите текст этого сообщения.');}finally{event.target.value='';}})();
 }
 function runSearch(){
  const q=document.getElementById('searchQuery').value.trim().toLocaleLowerCase();
