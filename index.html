@@ -458,21 +458,74 @@ function advisorMoney(n){return fmt(Math.round((Number(n)||0)*100)/100)}
 function advisorDaysRemaining(){const d=new Date(),last=new Date(d.getFullYear(),d.getMonth()+1,0).getDate();return Math.max(1,last-d.getDate()+1)}
 function advisorForecast(stats){const d=new Date(),elapsed=Math.max(1,d.getDate()),last=new Date(d.getFullYear(),d.getMonth()+1,0).getDate();return moneyRound(stats.income-stats.expense-(stats.expense/elapsed)*(last-d.getDate()))}
 function renderAdvisor(){
- const host=document.getElementById('advisorCards');if(!host)return;const cur=advisorPeriodStats(currentMonth()),days=advisorDaysRemaining();
- document.getElementById('advisorIncome').textContent=advisorMoney(cur.income);document.getElementById('advisorExpense').textContent=advisorMoney(cur.expense);
- const net=document.getElementById('advisorNet');net.textContent=advisorMoney(cur.net);net.className='value '+(cur.net>=0?'positive':'negative');document.getElementById('advisorRate').textContent=cur.income?Math.round(cur.net/cur.income*100)+'%':'—';
- const budgetEl=document.getElementById('advisorBudget'),catEl=document.getElementById('essentialCategories');if(budgetEl&&document.activeElement!==budgetEl)budgetEl.value=advisorSettings.monthlyBudget;if(catEl&&document.activeElement!==catEl)catEl.value=advisorSettings.essentialCategories.join(', ');
- const remaining=advisorSettings.monthlyBudget>0?advisorSettings.monthlyBudget-cur.expense:null;const daily=Math.max(0,remaining===null?cur.net:remaining)/days;const forecast=advisorForecast(cur);document.getElementById('advisorDailyLimit').textContent=advisorMoney(daily);document.getElementById('advisorForecast').textContent=advisorMoney(forecast);
- const count=cur.items.length;document.getElementById('advisorDataNote').textContent=count?'Учтено операций за месяц: '+count+'. Прогноз продолжает текущий темп расходов и не учитывает неизвестные счета, долги или будущие доходы.':'За текущий месяц пока нет операций. Добавь доходы и расходы для персонального анализа.';
- const cards=[];if(!count)cards.push({tag:'Недостаточно данных',title:'Начни с учёта операций',body:'Добавь операции за текущий месяц, чтобы оценить бюджет и потенциальные накопления.'});
- else {if(cur.income<=0)cards.push({tag:'Приоритет',title:'Доходы не внесены',body:'За текущий месяц нет учтённых доходов. Проверь полноту данных прежде, чем принимать финансовые решения.'});else if(cur.net<0)cards.push({tag:'Внимание',title:'Расходы выше доходов',body:'Расходы превышают доходы на '+advisorMoney(-cur.net)+'. Сначала проверь необязательные покупки и будущие платежи; не сокращай необходимые расходы на жильё, питание и здоровье.'});else cards.push({tag:'Финансовая картина',title:cur.net>0?'Есть потенциальный остаток':'Доходы равны расходам',body:cur.net>0?'По внесённым операциям осталось '+advisorMoney(cur.net)+', но из этой суммы ещё нужно вычесть предстоящие обязательные платежи.':'Весь учтённый доход ушёл на расходы. Проверь категории и предстоящие счета.'});
- const ex=cur.items.filter(t=>t.type==='expense'),cats={};ex.forEach(t=>{const c=t.category||'Другое';cats[c]=(cats[c]||0)+Number(t.amount||0)});const sorted=Object.entries(cats).sort((a,b)=>b[1]-a[1]);
- if(sorted.length){const top=sorted[0],needs=ex.filter(t=>advisorCategoryGroup(t.category)==='needs').reduce((a,t)=>a+Number(t.amount||0),0),wants=cur.expense-needs;cards.push({tag:'Категории',title:'Крупнейшая категория — '+top[0][0],body:'Потрачено '+advisorMoney(top[1])+' ('+(cur.expense?Math.round(top[1]/cur.expense*100):0)+'% расходов). Обязательные по твоим настройкам категории: '+advisorMoney(needs)+'. Остальные категории: '+advisorMoney(wants)+'. Категория не всегда определяет необходимость каждой отдельной покупки.'});if(wants>0)cards.push({tag:'Экономия',title:'Проверь необязательные расходы',body:'В категориях, не отмеченных обязательными, учтено '+advisorMoney(wants)+'. Это не гарантированная экономия: начни с редко используемых подписок и повторяющихся покупок.'})}
- if(advisorSettings.monthlyBudget>0){const pct=Math.round(cur.expense/advisorSettings.monthlyBudget*100);cards.push({tag:'Месячный бюджет',title:pct>=100?'Лимит превышен':pct>=80?'Использовано более 80% бюджета':'Бюджет под контролем',body:'Лимит '+advisorMoney(advisorSettings.monthlyBudget)+', потрачено '+advisorMoney(cur.expense)+' ('+pct+'%). '+(remaining<0?'Превышение: '+advisorMoney(-remaining)+'.':'Остаток: '+advisorMoney(remaining)+'.')+' Дневной ориентир на оставшиеся дни: '+advisorMoney(daily)+'. Сначала учитывай будущие обязательные платежи.'})}
- if(forecast<0)cards.push({tag:'Прогноз',title:'Возможен дефицит к концу месяца',body:'При сохранении текущего темпа расчётный результат составит '+advisorMoney(forecast)+'. Это приблизительная экстраполяция, а не гарантия.'});
- const unfinished=goals.filter(g=>Number(g.target)>goalBalance(g));if(unfinished.length){const g=unfinished[0],left=Math.max(0,Number(g.target)-goalBalance(g));cards.push({tag:'Накопления',title:'Цель «'+g.name+'»',body:'Осталось накопить '+advisorMoney(left)+'. Планируй взнос только после учёта обязательных платежей.'})}
- const threshold=Number(document.getElementById('microThreshold')?.value||15),small=cur.items.filter(t=>t.type==='expense'&&Number(t.amount)>0&&Number(t.amount)<=threshold),smallSum=small.reduce((a,t)=>a+Number(t.amount),0);if(small.length>=3)cards.push({tag:'Мелкие покупки',title:'Небольшие расходы складываются',body:'Найдено '+small.length+' покупок до '+advisorMoney(threshold)+' на '+advisorMoney(smallSum)+'. Проверь их по отдельности — не все мелкие расходы лишние.'});
- host.innerHTML=cards.map(c=>'<div class="advisor-card"><span class="advisor-tag">'+esc(c.tag)+'</span><h3>'+esc(c.title)+'</h3><div style="font-size:14px;line-height:1.5">'+esc(c.body)+'</div></div>').join('');const summary=document.getElementById('advisorBudgetSummary');if(summary)summary.textContent=advisorSettings.monthlyBudget>0?'Лимит: '+advisorMoney(advisorSettings.monthlyBudget)+'. Потрачено: '+advisorMoney(cur.expense)+'. Остаток лимита: '+advisorMoney(remaining)+'. Дневной ориентир: '+advisorMoney(daily)+'.':'Лимит не установлен. Дневной ориентир по внесённым операциям: '+advisorMoney(daily)+'. Учти будущие обязательные платежи.';
+ const host=document.getElementById('advisorCards');
+ if(!host)return;
+ const cur=advisorPeriodStats(currentMonth());
+ const days=advisorDaysRemaining();
+ document.getElementById('advisorIncome').textContent=advisorMoney(cur.income);
+ document.getElementById('advisorExpense').textContent=advisorMoney(cur.expense);
+ const net=document.getElementById('advisorNet');
+ net.textContent=advisorMoney(cur.net);
+ net.className='value '+(cur.net>=0?'positive':'negative');
+ document.getElementById('advisorRate').textContent=cur.income?Math.round(cur.net/cur.income*100)+'%':'—';
+ const budgetEl=document.getElementById('advisorBudget');
+ const catEl=document.getElementById('essentialCategories');
+ if(budgetEl&&document.activeElement!==budgetEl)budgetEl.value=advisorSettings.monthlyBudget||'';
+ if(catEl&&document.activeElement!==catEl)catEl.value=advisorSettings.essentialCategories.join(', ');
+ const remaining=advisorSettings.monthlyBudget>0?advisorSettings.monthlyBudget-cur.expense:null;
+ const daily=Math.max(0,remaining===null?cur.net:remaining)/days;
+ const forecast=advisorForecast(cur);
+ document.getElementById('advisorDailyLimit').textContent=advisorMoney(daily);
+ document.getElementById('advisorForecast').textContent=advisorMoney(forecast);
+ document.getElementById('advisorDataNote').textContent=cur.items.length
+  ?'Учтено операций за месяц: '+cur.items.length+'. Прогноз приблизительный и не учитывает неизвестные счета или будущие доходы.'
+  :'За текущий месяц пока нет операций. Добавь доходы и расходы для персонального анализа.';
+ const cards=[];
+ if(!cur.items.length){
+  cards.push({tag:'Недостаточно данных',title:'Начни с учёта операций',body:'Добавь операции за текущий месяц, чтобы оценить бюджет и накопления.'});
+ }else{
+  if(cur.income<=0){
+   cards.push({tag:'Приоритет',title:'Доходы не внесены',body:'За текущий месяц нет учтённых доходов. Проверь полноту данных.'});
+  }else if(cur.net<0){
+   cards.push({tag:'Внимание',title:'Расходы выше доходов',body:'Расходы превышают доходы на '+advisorMoney(-cur.net)+'. Проверь необязательные покупки, не сокращая необходимые расходы на жильё, питание и здоровье.'});
+  }else{
+   cards.push({tag:'Финансовая картина',title:cur.net>0?'Есть потенциальный остаток':'Доходы равны расходам',body:cur.net>0?'По внесённым операциям осталось '+advisorMoney(cur.net)+'. Учти предстоящие обязательные платежи.':'Весь учтённый доход ушёл на расходы. Проверь категории и будущие счета.'});
+  }
+  const ex=cur.items.filter(t=>t.type==='expense');
+  const cats={};
+  ex.forEach(t=>{const c=t.category||'Другое';cats[c]=(cats[c]||0)+Number(t.amount||0);});
+  const sorted=Object.entries(cats).sort((a,b)=>b[1]-a[1]);
+  if(sorted.length){
+   const top=sorted[0];
+   const needs=ex.filter(t=>advisorCategoryGroup(t.category)==='needs').reduce((a,t)=>a+Number(t.amount||0),0);
+   const wants=cur.expense-needs;
+   cards.push({tag:'Категории',title:'Крупнейшая категория — '+top[0],body:'Потрачено '+advisorMoney(top[1])+' ('+(cur.expense?Math.round(top[1]/cur.expense*100):0)+'% расходов). Обязательные категории по настройкам: '+advisorMoney(needs)+'. Остальные категории: '+advisorMoney(wants)+'. Проверяй необходимость отдельных покупок.'});
+   if(wants>0)cards.push({tag:'Экономия',title:'Проверь необязательные расходы',body:'В категориях, не отмеченных обязательными, учтено '+advisorMoney(wants)+'. Это повод проверить покупки, а не гарантированная экономия.'});
+  }
+  if(advisorSettings.monthlyBudget>0){
+   const pct=Math.round(cur.expense/advisorSettings.monthlyBudget*100);
+   const title=pct>=100?'Лимит превышен':pct>=80?'Использовано более 80% бюджета':'Бюджет под контролем';
+   const status=remaining<0?'Превышение: '+advisorMoney(-remaining)+'.':'Остаток: '+advisorMoney(remaining)+'.';
+   cards.push({tag:'Месячный бюджет',title,body:'Лимит '+advisorMoney(advisorSettings.monthlyBudget)+', потрачено '+advisorMoney(cur.expense)+' ('+pct+'%). '+status+' Дневной ориентир: '+advisorMoney(daily)+'. Учти обязательные платежи.'});
+  }
+  if(forecast<0)cards.push({tag:'Прогноз',title:'Возможен дефицит к концу месяца',body:'При сохранении текущего темпа расчётный результат составит '+advisorMoney(forecast)+'. Это приблизительная оценка.'});
+  const unfinished=goals.filter(g=>Number(g.target)>goalBalance(g));
+  if(unfinished.length){
+   const g=unfinished[0];
+   cards.push({tag:'Накопления',title:'Цель «'+g.name+'»',body:'Осталось накопить '+advisorMoney(Math.max(0,Number(g.target)-goalBalance(g)))+'. Планируй взнос после обязательных платежей.'});
+  }
+  const threshold=Number(document.getElementById('microThreshold')?.value||15);
+  const small=cur.items.filter(t=>t.type==='expense'&&Number(t.amount)>0&&Number(t.amount)<=threshold);
+  const smallSum=small.reduce((a,t)=>a+Number(t.amount||0),0);
+  if(small.length>=3)cards.push({tag:'Мелкие покупки',title:'Небольшие расходы складываются',body:'Найдено '+small.length+' покупок до '+advisorMoney(threshold)+' на '+advisorMoney(smallSum)+'. Проверь их по отдельности.'});
+ }
+ host.innerHTML=cards.map(c=>'<div class="advisor-card"><span class="advisor-tag">'+esc(c.tag)+'</span><h3>'+esc(c.title)+'</h3><div style="font-size:14px;line-height:1.5">'+esc(c.body)+'</div></div>').join('');
+ const summary=document.getElementById('advisorBudgetSummary');
+ if(summary){
+  summary.textContent=advisorSettings.monthlyBudget>0
+   ?'Лимит: '+advisorMoney(advisorSettings.monthlyBudget)+'. Потрачено: '+advisorMoney(cur.expense)+'. Остаток лимита: '+advisorMoney(remaining)+'. Дневной ориентир: '+advisorMoney(daily)+'.'
+   :'Лимит не установлен. Дневной ориентир по внесённым операциям: '+advisorMoney(daily)+'. Учти будущие обязательные платежи.';
+ }
 }
 function advisorAnswerFor(question){const q=String(question||'').toLocaleLowerCase('ru-RU'),cur=advisorPeriodStats(currentMonth()),ex=cur.items.filter(t=>t.type==='expense'),cats={};ex.forEach(t=>{const c=t.category||'Другое';cats[c]=(cats[c]||0)+Number(t.amount||0)});const sorted=Object.entries(cats).sort((a,b)=>b[1]-a[1]);if(!q.trim())return 'Введи вопрос или выбери готовую тему.';if(/прогноз|конец месяца|останется/.test(q))return 'Прогноз результата месяца: '+advisorMoney(advisorForecast(cur))+'. Это оценка при сохранении текущего темпа расходов; будущие счета и доходы неизвестны.';if(/цель|накоп|машин|телефон/.test(q)){if(!goals.length)return 'Пока нет финансовых целей. Создай цель в разделе «Статистика».';return goals.map(g=>'«'+g.name+'»: накоплено '+advisorMoney(goalBalance(g))+' из '+advisorMoney(g.target)+', осталось '+advisorMoney(Math.max(0,Number(g.target)-goalBalance(g)))+'.').join('\n')}if(/расход|трат|покуп|категор/.test(q)){const needs=ex.filter(t=>advisorCategoryGroup(t.category)==='needs').reduce((a,t)=>a+Number(t.amount||0),0);return 'Доходы: '+advisorMoney(cur.income)+', расходы: '+advisorMoney(cur.expense)+', остаток: '+advisorMoney(cur.net)+'.\nОбязательные категории: '+advisorMoney(needs)+', остальные категории: '+advisorMoney(cur.expense-needs)+'.\nКрупнейшие категории:\n'+(sorted.slice(0,5).map(x=>'• '+x[0]+': '+advisorMoney(x[1])).join('\n')||'Расходов пока нет')+'. Проверь классификацию отдельных покупок.'}if(/эконом|сократ|лишн|мелк/.test(q)){const wants=ex.filter(t=>advisorCategoryGroup(t.category)==='wants').reduce((a,t)=>a+Number(t.amount||0),0);return 'Расходы в категориях, не отмеченных обязательными: '+advisorMoney(wants)+'. Это кандидаты для проверки, не гарантированная экономия. Начни с редко используемых подписок и повторяющихся покупок.'}if(/бюджет|лимит|день|остаток|позволить/.test(q)){const rem=advisorSettings.monthlyBudget>0?advisorSettings.monthlyBudget-cur.expense:cur.net;return 'Доходы: '+advisorMoney(cur.income)+', расходы: '+advisorMoney(cur.expense)+', результат: '+advisorMoney(cur.net)+'. '+(advisorSettings.monthlyBudget>0?'Остаток месячного лимита: '+advisorMoney(rem)+'. ':'Месячный лимит не установлен. ')+'Дневной ориентир: '+advisorMoney(Math.max(0,rem)/advisorDaysRemaining())+'. Учти обязательные платежи.'}return 'Я могу анализировать расходы по категориям, обязательные и необязательные траты, бюджет, дневной лимит, прогноз остатка и финансовые цели.'}
 function askAdvisor(){const input=document.getElementById('advisorQuestion');document.getElementById('advisorAnswer').textContent=advisorAnswerFor(input.value)}
