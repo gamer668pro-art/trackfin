@@ -207,6 +207,43 @@ nav button.active,nav button[aria-current="page"]{
  *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important;transition-duration:.01ms!important;}
  body::before{animation:none;will-change:auto;}
 }
+
+/* FinTrack charts — smooth, touch-friendly, low-cost SVG motion */
+.line-chart-wrap{position:relative;min-width:0;margin-top:8px}
+.line-chart{display:block;width:100%;height:auto;overflow:visible;touch-action:pan-y;user-select:none}
+.line-chart .grid-line{stroke:rgba(145,157,193,.14);stroke-width:1;vector-effect:non-scaling-stroke}
+.line-chart .axis-label{fill:var(--muted);font-size:10px;font-family:inherit}
+.line-chart .series-line{fill:none;stroke-width:3;stroke-linecap:round;stroke-linejoin:round;vector-effect:non-scaling-stroke;filter:none}
+.line-chart .series-income{stroke:var(--green)}
+.line-chart .series-expense{stroke:var(--red)}
+.line-chart .series-net{stroke:var(--accent)}
+.line-chart .line-area{opacity:.08}
+.line-chart .line-point{stroke:#0d111b;stroke-width:2;vector-effect:non-scaling-stroke}
+.line-chart .point-income{fill:var(--green)}
+.line-chart .point-expense{fill:var(--red)}
+.line-chart .point-net{fill:var(--accent)}
+.line-chart .point-hit{fill:transparent;stroke:transparent;cursor:pointer;pointer-events:all}
+.line-chart .point-hit:focus{outline:none;stroke:var(--text);stroke-width:2;vector-effect:non-scaling-stroke}
+.chart-tooltip{position:absolute;z-index:2;left:0;top:0;min-width:150px;max-width:min(240px,85%);padding:11px 12px;border:1px solid rgba(169,155,255,.28);border-radius:13px;background:rgba(10,13,23,.96);box-shadow:0 12px 30px rgba(0,0,0,.28);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);font-size:12px;line-height:1.55;pointer-events:none;opacity:0;transform:translateY(4px);transition:opacity .16s ease,transform .16s ease}
+.chart-tooltip.visible{opacity:1;transform:translateY(0)}
+.chart-tooltip strong{display:block;margin-bottom:5px;font-size:12px;color:var(--text)}
+.chart-tooltip .tip-income{color:var(--green)}.chart-tooltip .tip-expense{color:var(--red)}.chart-tooltip .tip-net{color:var(--accent)}
+.chart-legend{display:flex;flex-wrap:wrap;gap:12px;margin:5px 0 0;font-size:11px;color:var(--muted)}
+.chart-legend span{display:inline-flex;align-items:center;gap:6px}
+.chart-legend i{display:inline-block;width:8px;height:8px;border-radius:50%}
+.chart-legend .legend-income{background:var(--green)}.chart-legend .legend-expense{background:var(--red)}.chart-legend .legend-net{background:var(--accent)}
+.chart-empty{padding:28px 12px;text-align:center;color:var(--muted);font-size:13px;border:1px dashed var(--line);border-radius:15px}
+.line-chart .series-line{stroke-dasharray:1200;stroke-dashoffset:1200;animation:fintrack-line-draw 1.05s cubic-bezier(.22,.7,.2,1) forwards}
+.line-chart .series-expense{animation-delay:.08s}.line-chart .series-net{animation-delay:.16s}
+.category-row{animation:fintrack-category-in .38s both}
+.category-row:nth-child(2){animation-delay:.035s}.category-row:nth-child(3){animation-delay:.07s}.category-row:nth-child(4){animation-delay:.105s}.category-row:nth-child(5){animation-delay:.14s}.category-row:nth-child(6){animation-delay:.175s}
+.category-row .fill{transform-origin:left;animation:fintrack-category-fill .65s cubic-bezier(.2,.75,.25,1) both}
+@keyframes fintrack-line-draw{to{stroke-dashoffset:0}}
+@keyframes fintrack-category-in{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
+@keyframes fintrack-category-fill{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+@media(max-width:480px){.chart-tooltip{padding:9px 10px;min-width:140px}.chart-legend{gap:9px}.line-chart .series-line{stroke-width:2.5}}
+@media(prefers-reduced-motion:reduce){.line-chart .series-line{stroke-dasharray:none;stroke-dashoffset:0;animation:none}.category-row,.category-row .fill{animation:none;transform:none}.chart-tooltip{transition:none}}
+
 </style>
 </head>
 <body>
@@ -223,7 +260,7 @@ nav button.active,nav button[aria-current="page"]{
   </div>
  </div>
  <div class="actions"><button class="action-income" onclick="openForm('income')">＋ Доход</button><button class="action-expense" onclick="openForm('expense')">− Расход</button></div>
- <div class="card"><div class="section-head"><h2>Движение денег</h2><span class="muted">6 месяцев</span></div><div class="bar-chart" id="chart"></div></div>
+ <div class="card"><div class="section-head"><h2>Движение денег</h2><span class="muted">6 месяцев</span></div><div id="chart"></div></div>
  <div class="section-head"><h2>Последние операции</h2><button class="small-button" onclick="showView('transactions')">Все</button></div>
  <div class="card" id="recentList"></div>
 </section>
@@ -240,7 +277,7 @@ nav button.active,nav button[aria-current="page"]{
 <section id="analytics" class="view">
  <div class="section-head"><h2>Аналитика</h2></div>
  <div class="card"><h2>Итоги текущего месяца</h2><div class="metrics"><div class="metric"><div class="label">Чистый результат</div><div class="value" id="netResult">0,00 zł</div></div><div class="metric"><div class="label">Доля сбережений</div><div class="value" id="savingRate">0%</div></div></div></div>
- <div class="card"><h2>Расходы по категориям</h2><div id="categories"></div></div>
+ <div class="card"><h2>Динамика за 6 месяцев</h2><div id="analyticsTrend"></div></div><div class="card"><h2>Расходы по категориям</h2><div id="categories"></div></div>
  
   <div class="card">
    <h2>Анализ мелких расходов</h2>
@@ -467,16 +504,63 @@ function txHtml(t){return `<div class="transaction"><div class="tx-icon" data-ca
 function listHtml(items){return items.length?items.slice().sort((a,b)=>b.date.localeCompare(a.date)).map(txHtml).join(''):'<div class="empty">Операций пока нет</div>'}
 function sum(items,type){return items.filter(t=>t.type===type).reduce((s,t)=>s+t.amount,0)}
 function currentMonth(){return today().slice(0,7)}
+function lastSixMonthsData(){
+ const keys=[],d=new Date();
+ for(let i=5;i>=0;i--){const x=new Date(d.getFullYear(),d.getMonth()-i,1);keys.push(x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0'))}
+ return keys.map(k=>{const items=transactions.filter(t=>monthKey(t.date)===k),income=sum(items,'income'),expense=sum(items,'expense');return {k,income,expense,net:income-expense,hasData:items.length>0}});
+}
+function chartTooltipHtml(v){
+ return '<strong>'+esc(monthLabel(v.k)+' '+v.k.slice(0,4)+'</strong>')+
+ '<div class="tip-income">Доходы: '+fmt(v.income)+'</div>'+
+ '<div class="tip-expense">Расходы: '+fmt(v.expense)+'</div>'+
+ '<div class="tip-net">Баланс месяца: '+fmt(v.net)+'</div>';
+}
+function renderSmoothLineChart(targetId,values){
+ const root=document.getElementById(targetId);if(!root)return;
+ if(!values.some(v=>v.hasData)){
+  root.innerHTML='<div class="chart-empty">Пока нет операций за эти 6 месяцев. Добавьте доход или расход — график появится здесь.</div>';return;
+ }
+ const W=600,H=226,L=43,R=16,T=16,B=31,plotW=W-L-R,plotH=H-T-B;
+ const all=values.flatMap(v=>[v.income,v.expense,v.net]),lo=Math.min(0,...all),hi=Math.max(1,...all);
+ const pad=(hi-lo)*.12||1,min=lo-pad,max=hi+pad;
+ const x=i=>L+(values.length===1?plotW/2:i*plotW/(values.length-1));
+ const y=n=>T+(max-n)/(max-min)*plotH;
+ const pathFor=key=>values.map((v,i)=>({x:x(i),y:y(v[key])})).reduce((acc,p,i,a)=>{
+  if(i===0)return 'M '+p.x+' '+p.y;
+  const prev=a[i-1],mid=(prev.x+p.x)/2;
+  return acc+' C '+mid+' '+prev.y+', '+mid+' '+p.y+', '+p.x+' '+p.y;
+ },'');
+ const grid=[0,1,2,3].map(i=>{const yy=T+plotH*i/3,val=max-(max-min)*i/3;return '<line class="grid-line" x1="'+L+'" y1="'+yy+'" x2="'+(W-R)+'" y2="'+yy+'"/><text class="axis-label" x="'+(L-7)+'" y="'+(yy+3)+'" text-anchor="end">'+esc(shortChartAmount(val))+'</text>'}).join('');
+ const labels=values.map((v,i)=>'<text class="axis-label" x="'+x(i)+'" y="'+(H-9)+'" text-anchor="middle">'+esc(monthLabel(v.k))+'</text>').join('');
+ const series=[['income','series-income','point-income'],['expense','series-expense','point-expense'],['net','series-net','point-net']];
+ const lines=series.map(([key,cls,pointCls])=>'<path class="series-line '+cls+'" d="'+pathFor(key)+'"/>').join('');
+ const points=values.map((v,i)=>series.map(([key,cls,pointCls])=>'<circle class="line-point '+pointCls+'" cx="'+x(i)+'" cy="'+y(v[key])+'" r="3.5"/><circle class="point-hit" data-index="'+i+'" data-series="'+key+'" cx="'+x(i)+'" cy="'+y(v[key])+'" r="13" tabindex="0" role="button" aria-label="'+esc(monthLabel(v.k)+' '+v.k.slice(0,4)+', '+(key==='income'?'доходы':key==='expense'?'расходы':'баланс')+' '+fmt(v[key]))+'"/>').join('')).join('');
+ root.innerHTML='<div class="line-chart-wrap"><svg class="line-chart" viewBox="0 0 '+W+' '+H+'" role="group" aria-label="График доходов, расходов и месячного баланса за шесть месяцев">'+grid+lines+points+labels+'</svg><div class="chart-tooltip" aria-live="polite"></div></div><div class="chart-legend"><span><i class="legend-income"></i>Доходы</span><span><i class="legend-expense"></i>Расходы</span><span><i class="legend-net"></i>Баланс</span></div>';
+ const wrap=root.querySelector('.line-chart-wrap'),svg=root.querySelector('svg'),tip=root.querySelector('.chart-tooltip');
+ let activeIndex=-1;
+ const showTip=(index,seriesKey,clientX,clientY)=>{
+  const v=values[index];if(!v)return;activeIndex=index;tip.innerHTML=chartTooltipHtml(v);tip.classList.add('visible');
+  const box=wrap.getBoundingClientRect(),sx=clientX==null?box.width*(x(index)/W):clientX-box.left,sy=clientY==null?24:clientY-box.top;
+  const left=Math.max(5,Math.min(box.width-tip.offsetWidth-5,sx-tip.offsetWidth/2));
+  tip.style.left=left+'px';tip.style.top=Math.max(2,Math.min(box.height-tip.offsetHeight-4,sy-tip.offsetHeight-16))+'px';
+ };
+ const hideTip=()=>{tip.classList.remove('visible');activeIndex=-1};
+ root.querySelectorAll('.point-hit').forEach(point=>{
+  const index=Number(point.dataset.index),seriesKey=point.dataset.series;
+  point.addEventListener('pointerenter',e=>{if(e.pointerType==='mouse')showTip(index,seriesKey,e.clientX,e.clientY)});
+  point.addEventListener('pointerdown',e=>{e.preventDefault();showTip(index,seriesKey,e.clientX,e.clientY)});
+  point.addEventListener('click',e=>{e.preventDefault();showTip(index,seriesKey,e.clientX,e.clientY)});
+  point.addEventListener('focus',()=>showTip(index,seriesKey));
+  point.addEventListener('keydown',e=>{if(e.key==='Escape')hideTip()});
+ });
+ svg.addEventListener('pointerleave',e=>{if(e.pointerType==='mouse')hideTip()});
+}
 function renderDashboard(){
  const m=transactions.filter(t=>monthKey(t.date)===currentMonth()),inc=sum(m,'income'),out=sum(m,'expense');
  document.getElementById('balance').textContent=fmt(sum(transactions,'income')-sum(transactions,'expense'));
  document.getElementById('monthIncome').textContent='+'+fmt(inc);document.getElementById('monthExpense').textContent='−'+fmt(out);
  document.getElementById('recentList').innerHTML=listHtml(transactions.slice().sort((a,b)=>b.date.localeCompare(a.date)).slice(0,5));
- const chart=document.getElementById('chart');const keys=[];
- const d=new Date();for(let i=5;i>=0;i--){let x=new Date(d.getFullYear(),d.getMonth()-i,1);keys.push(x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0'))}
- const values=keys.map(k=>{let a=transactions.filter(t=>monthKey(t.date)===k);return {k,net:sum(a,'income')-sum(a,'expense'),in:sum(a,'income'),out:sum(a,'expense')}});
- const max=Math.max(1,...values.map(v=>Math.max(v.in,v.out)));
- chart.innerHTML=values.map(v=>`<div class="bar-col" title="Доходы ${fmt(v.in)}, расходы ${fmt(v.out)}"><div style="display:flex;align-items:end;gap:3px;height:100%;width:100%;justify-content:center"><div class="bar" style="height:${Math.max(3,v.in/max*100)}%;background:var(--green)"></div><div class="bar" style="height:${Math.max(3,v.out/max*100)}%;background:var(--red)"></div></div><div class="bar-label">${monthLabel(v.k)}</div></div>`).join('');
+ renderSmoothLineChart('chart',lastSixMonthsData());
 }
 function renderTransactions(){
  const type=document.getElementById('typeFilter').value,month=document.getElementById('monthFilter').value;
@@ -489,7 +573,8 @@ function renderAnalytics(){
  const cats={};m.filter(t=>t.type==='expense').forEach(t=>cats[t.category]=(cats[t.category]||0)+t.amount);
  const sorted=Object.entries(cats).sort((a,b)=>b[1]-a[1]),max=Math.max(1,...sorted.map(x=>x[1]));
  document.getElementById('categories').innerHTML=sorted.length?sorted.map(([name,val])=>`<div class="category-row"><div class="category-icon" data-category="${esc(name)}">${categorySvg(name)}</div><div class="category-name">${esc(name)}</div><div class="track"><div class="fill" style="width:${val/max*100}%"></div></div><div class="category-value">${fmt(val)}</div></div>`).join(''):'<div class="empty">В этом месяце расходов нет</div>';
- const keys=[];const d=new Date();for(let i=5;i>=0;i--){let x=new Date(d.getFullYear(),d.getMonth()-i,1);keys.push(x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0'))}
+ renderSmoothLineChart('analyticsTrend',lastSixMonthsData());
+ const keys=lastSixMonthsData().map(v=>v.k);
  document.getElementById('monthlySummary').innerHTML=keys.map(k=>{let a=transactions.filter(t=>monthKey(t.date)===k),i=sum(a,'income'),o=sum(a,'expense');return `<div class="transaction"><div class="tx-info"><div class="tx-title">${monthLabel(k)} ${k.slice(0,4)}</div><div class="tx-sub">Доходы ${fmt(i)} · Расходы ${fmt(o)}</div></div><div class="tx-amount ${(i-o)>=0?'positive':'negative'}">${fmt(i-o)}</div></div>`}).join('');
 }
 function renderMonthFilter(){
