@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#101114">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="FinTrack">
+<link rel="manifest" href="manifest.webmanifest">
+<title>FinTrack — личные финансы</title>
+<style>
+:root{color-scheme:dark;--bg:#101114;--panel:#191a20;--panel2:#202129;--text:#f5f5f7;--muted:#9698a6;--green:#8be0b0;--red:#ff8585;--line:#2c2d36;--accent:#b8a6ff}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:16px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;padding:env(safe-area-inset-top) 16px calc(86px + env(safe-area-inset-bottom));max-width:760px;margin-inline:auto}
+header{display:flex;justify-content:space-between;align-items:center;padding:18px 0 20px}h1{font-size:24px;margin:0;letter-spacing:-.7px}h2{font-size:17px;margin:0 0 14px}p{line-height:1.45}.muted{color:var(--muted);font-size:13px}.pill{font-size:12px;border:1px solid var(--line);border-radius:999px;padding:7px 10px;color:var(--muted)}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:20px;padding:18px;margin-bottom:14px}.balance-label{color:var(--muted);font-size:13px}.balance{font-size:34px;font-weight:750;letter-spacing:-1.1px;margin:7px 0 18px}.metrics{display:grid;grid-template-columns:1fr 1fr;gap:10px}.metric{background:var(--panel2);border-radius:14px;padding:13px}.metric .label{font-size:12px;color:var(--muted)}.metric .value{font-size:18px;font-weight:700;margin-top:7px}.positive{color:var(--green)}.negative{color:var(--red)}
+.actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:14px 0 22px}button,.file-button{font:inherit;border:0;border-radius:13px;padding:13px 14px;background:var(--panel2);color:var(--text);cursor:pointer}.primary{background:var(--accent);color:#171321;font-weight:700}.action-income{border:1px solid #326b50}.action-expense{border:1px solid #704040}
+.section-head{display:flex;justify-content:space-between;align-items:center;margin:22px 2px 12px}.section-head h2{margin:0}.transaction{display:flex;align-items:center;gap:12px;padding:13px 0;border-bottom:1px solid var(--line)}.transaction:last-child{border-bottom:0}.tx-icon{width:42px;height:42px;display:grid;place-items:center;border-radius:14px;background:var(--panel2);font-size:18px}.tx-info{flex:1;min-width:0}.tx-title{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.tx-sub{font-size:12px;color:var(--muted);margin-top:4px}.tx-amount{font-weight:700;white-space:nowrap}.empty{color:var(--muted);font-size:14px;padding:20px 0;text-align:center}
+.bar-chart{height:140px;display:flex;align-items:end;gap:8px;padding:12px 2px 0}.bar-col{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:end;height:100%;gap:7px;min-width:0}.bar{width:min(28px,80%);min-height:3px;border-radius:7px 7px 3px 3px;background:var(--accent)}.bar-label{font-size:10px;color:var(--muted)}.category-row{display:flex;align-items:center;gap:10px;margin:13px 0}.category-name{flex:1;font-size:13px}.track{height:7px;background:var(--panel2);border-radius:10px;flex:1;overflow:hidden}.fill{height:100%;background:var(--accent);border-radius:10px}.category-value{font-size:12px;color:var(--muted);min-width:72px;text-align:right}
+nav{position:fixed;z-index:5;bottom:0;left:0;right:0;padding:10px 18px calc(10px + env(safe-area-inset-bottom));background:#101114ee;backdrop-filter:blur(18px);border-top:1px solid var(--line);display:flex;justify-content:space-around;max-width:760px;margin:auto}nav button{background:transparent;color:var(--muted);padding:7px 12px;font-size:12px}nav button.active{color:var(--accent)}
+.view{display:none}.view.active{display:block}.field{display:flex;flex-direction:column;gap:7px;margin:12px 0}.field label{font-size:13px;color:var(--muted)}input,select{width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:13px;color:var(--text);font:inherit}form .primary{width:100%;margin-top:8px}.filters{display:flex;gap:8px;margin-bottom:12px}.filters select{flex:1;min-width:0;padding:10px;font-size:13px}.notice{border:1px solid #594d2d;background:#242116;border-radius:14px;padding:12px 13px;font-size:12px;line-height:1.5;color:#e8d9a8;margin-bottom:14px}.small-button{padding:8px 10px;font-size:12px}.settings-row{padding:14px 0;border-bottom:1px solid var(--line)}.settings-row:last-child{border:0}.settings-row strong{display:block;margin-bottom:5px}.settings-row p{font-size:13px;color:var(--muted);margin:0 0 10px}.danger{color:var(--red)}.hidden{display:none!important}
+@media(min-width:600px){body{padding-inline:24px}.balance{font-size:40px}}
+</style>
+</head>
+<body>
+<header><div><div class="muted">ЛИЧНЫЕ ФИНАНСЫ</div><h1>FinTrack</h1></div><span class="pill">PLN · локально</span></header>
+<div class="notice" id="bankNotice"><strong>Банковская интеграция не подключена.</strong> Для автоматического импорта нужен совместимый PSD2/Open Banking-провайдер и подключение выбранного банка. Пока можно импортировать CSV-выписку — файл обрабатывается в браузере.</div>
+
+<main>
+<section id="dashboard" class="view active">
+ <div class="card">
+  <div class="balance-label">Баланс по учтённым операциям</div>
+  <div class="balance" id="balance">0,00 zł</div>
+  <div class="metrics">
+   <div class="metric"><div class="label">Доходы за месяц</div><div class="value positive" id="monthIncome">+0,00 zł</div></div>
+   <div class="metric"><div class="label">Расходы за месяц</div><div class="value negative" id="monthExpense">−0,00 zł</div></div>
+  </div>
+ </div>
+ <div class="actions"><button class="action-income" onclick="openForm('income')">＋ Доход</button><button class="action-expense" onclick="openForm('expense')">− Расход</button></div>
+ <div class="card"><div class="section-head"><h2>Движение денег</h2><span class="muted">6 месяцев</span></div><div class="bar-chart" id="chart"></div></div>
+ <div class="section-head"><h2>Последние операции</h2><button class="small-button" onclick="showView('transactions')">Все</button></div>
+ <div class="card" id="recentList"></div>
+</section>
+
+<section id="transactions" class="view">
+ <div class="section-head"><h2>Транзакции</h2><button class="small-button" onclick="document.getElementById('csvFile').click()">Импорт CSV</button></div>
+ <input id="csvFile" class="hidden" type="file" accept=".csv,text/csv" onchange="importCSV(event)">
+ <div class="filters"><select id="typeFilter" onchange="renderTransactions()"><option value="all">Все операции</option><option value="income">Доходы</option><option value="expense">Расходы</option></select><select id="monthFilter" onchange="renderTransactions()"><option value="all">Все даты</option></select></div>
+ <div class="card" id="allList"></div>
+ <p class="muted">Формат CSV зависит от банка. Импортёр понимает типичные колонки даты, описания и суммы; после импорта проверьте операции.</p>
+</section>
+
+<section id="analytics" class="view">
+ <div class="section-head"><h2>Аналитика</h2></div>
+ <div class="card"><h2>Итоги текущего месяца</h2><div class="metrics"><div class="metric"><div class="label">Чистый результат</div><div class="value" id="netResult">0,00 zł</div></div><div class="metric"><div class="label">Доля сбережений</div><div class="value" id="savingRate">0%</div></div></div></div>
+ <div class="card"><h2>Расходы по категориям</h2><div id="categories"></div></div>
+ <div class="card"><h2>Итоги за 6 месяцев</h2><div id="monthlySummary"></div></div>
+</section>
+
+<section id="add" class="view">
+ <div class="section-head"><h2 id="formHeading">Новая операция</h2></div>
+ <div class="card"><form id="txForm">
+  <div class="field"><label for="txType">Тип</label><select id="txType"><option value="expense">Расход</option><option value="income">Доход</option></select></div>
+  <div class="field"><label for="txAmount">Сумма (PLN)</label><input id="txAmount" type="number" min="0.01" step="0.01" required placeholder="0,00"></div>
+  <div class="field"><label for="txCategory">Категория</label><select id="txCategory"></select></div>
+  <div class="field"><label for="txDate">Дата</label><input id="txDate" type="date" required></div>
+  <div class="field"><label for="txDescription">Описание</label><input id="txDescription" maxlength="100" placeholder="Например, продукты"></div>
+  <button class="primary" type="submit">Сохранить операцию</button>
+  <button type="button" id="cancelEdit" class="hidden" onclick="resetForm()">Отменить редактирование</button>
+ </form></div>
+</section>
+
+<section id="settings" class="view">
+ <div class="section-head"><h2>Данные и настройки</h2></div>
+ <div class="card">
+  <div class="settings-row"><strong>Хранение</strong><p>Операции хранятся локально в этом браузере на устройстве. Они не синхронизируются с другими устройствами. Очистка данных Safari может удалить записи.</p></div>
+  <div class="settings-row"><strong>Экспорт резервной копии</strong><p>Скачайте JSON-файл с операциями и сохраните его в надёжном месте.</p><button class="primary" onclick="exportData()">Экспортировать данные</button></div>
+  <div class="settings-row"><strong>Импорт банковской выписки</strong><p>Выберите CSV-файл, экспортированный из интернет-банка. Данные обрабатываются локально в браузере.</p><button onclick="document.getElementById('csvFile').click()">Выбрать CSV</button></div>
+  <div class="settings-row"><strong>Удаление данных</strong><p>Это действие нельзя отменить без резервной копии.</p><button class="danger" onclick="clearData()">Удалить все операции</button></div>
+  <div class="settings-row"><strong>Автоматическая интеграция с банком</strong><p>Не подключена в этой версии. Нельзя безопасно получить банковские операции только по номеру карты. Потребуются согласие владельца счёта, совместимый провайдер и отдельная реализация авторизации.</p></div>
+ </div>
+</section>
+</main>
+<nav>
+<button class="active" data-view="dashboard" onclick="showView('dashboard')">Обзор</button>
+<button data-view="transactions" onclick="showView('transactions')">Операции</button>
+<button data-view="analytics" onclick="showView('analytics')">Статистика</button>
+<button data-view="settings" onclick="showView('settings')">Настройки</button>
+</nav>
+<script>
+const KEY='fintrack_transactions_v1';
+const categories={expense:['Продукты','Транспорт','Жильё','Здоровье','Покупки','Подписки','Развлечения','Образование','Бизнес','Другое'],income:['Зарплата','Бизнес','Перевод','Подарок','Инвестиции','Другое']};
+let transactions=loadData(), editingId=null;
+const fmt=n=>new Intl.NumberFormat('pl-PL',{style:'currency',currency:'PLN'}).format(n);
+const today=()=>new Date().toISOString().slice(0,10);
+const monthKey=d=>String(d||'').slice(0,7);
+const monthLabel=key=>{const [y,m]=key.split('-').map(Number);return new Date(y,m-1,1).toLocaleDateString('ru-RU',{month:'short'});};
+function loadData(){try{return JSON.parse(localStorage.getItem(KEY)||'[]')}catch{return []}}
+function saveData(){localStorage.setItem(KEY,JSON.stringify(transactions));renderAll()}
+function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function iconFor(t){return t.type==='income'?'↙':({'Продукты':'🛒','Транспорт':'↗','Жильё':'⌂','Здоровье':'＋','Покупки':'◇','Подписки':'◷','Развлечения':'☆','Образование':'▤','Бизнес':'▥'}[t.category]||'•')}
+function signed(t){return (t.type==='income'?'+':'−')+fmt(t.amount)}
+function txHtml(t){return `<div class="transaction"><div class="tx-icon">${iconFor(t)}</div><div class="tx-info"><div class="tx-title">${esc(t.description||t.category)}</div><div class="tx-sub">${esc(t.category)} · ${esc(t.date)}</div></div><div style="text-align:right"><div class="tx-amount ${t.type==='income'?'positive':'negative'}">${signed(t)}</div><div style="margin-top:5px;white-space:nowrap"><button class="small-button" onclick="editTx('${t.id}')">Изм.</button> <button class="small-button" onclick="deleteTx('${t.id}')">×</button></div></div></div>`}
+function listHtml(items){return items.length?items.slice().sort((a,b)=>b.date.localeCompare(a.date)).map(txHtml).join(''):'<div class="empty">Операций пока нет</div>'}
+function sum(items,type){return items.filter(t=>t.type===type).reduce((s,t)=>s+t.amount,0)}
+function currentMonth(){return today().slice(0,7)}
+function renderDashboard(){
+ const m=transactions.filter(t=>monthKey(t.date)===currentMonth()),inc=sum(m,'income'),out=sum(m,'expense');
+ document.getElementById('balance').textContent=fmt(sum(transactions,'income')-sum(transactions,'expense'));
+ document.getElementById('monthIncome').textContent='+'+fmt(inc);document.getElementById('monthExpense').textContent='−'+fmt(out);
+ document.getElementById('recentList').innerHTML=listHtml(transactions.slice().sort((a,b)=>b.date.localeCompare(a.date)).slice(0,5));
+ const chart=document.getElementById('chart');const keys=[];
+ const d=new Date();for(let i=5;i>=0;i--){let x=new Date(d.getFullYear(),d.getMonth()-i,1);keys.push(x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0'))}
+ const values=keys.map(k=>{let a=transactions.filter(t=>monthKey(t.date)===k);return {k,net:sum(a,'income')-sum(a,'expense'),in:sum(a,'income'),out:sum(a,'expense')}});
+ const max=Math.max(1,...values.map(v=>Math.max(v.in,v.out)));
+ chart.innerHTML=values.map(v=>`<div class="bar-col" title="Доходы ${fmt(v.in)}, расходы ${fmt(v.out)}"><div style="display:flex;align-items:end;gap:3px;height:100%;width:100%;justify-content:center"><div class="bar" style="height:${Math.max(3,v.in/max*100)}%;background:var(--green)"></div><div class="bar" style="height:${Math.max(3,v.out/max*100)}%;background:var(--red)"></div></div><div class="bar-label">${monthLabel(v.k)}</div></div>`).join('');
+}
+function renderTransactions(){
+ const type=document.getElementById('typeFilter').value,month=document.getElementById('monthFilter').value;
+ const items=transactions.filter(t=>(type==='all'||t.type===type)&&(month==='all'||monthKey(t.date)===month));
+ document.getElementById('allList').innerHTML=listHtml(items);
+}
+function renderAnalytics(){
+ const m=transactions.filter(t=>monthKey(t.date)===currentMonth()),inc=sum(m,'income'),out=sum(m,'expense');
+ document.getElementById('netResult').textContent=fmt(inc-out);document.getElementById('savingRate').textContent=(inc?Math.round((inc-out)/inc*100):0)+'%';
+ const cats={};m.filter(t=>t.type==='expense').forEach(t=>cats[t.category]=(cats[t.category]||0)+t.amount);
+ const sorted=Object.entries(cats).sort((a,b)=>b[1]-a[1]),max=Math.max(1,...sorted.map(x=>x[1]));
+ document.getElementById('categories').innerHTML=sorted.length?sorted.map(([name,val])=>`<div class="category-row"><div class="category-name">${esc(name)}</div><div class="track"><div class="fill" style="width:${val/max*100}%"></div></div><div class="category-value">${fmt(val)}</div></div>`).join(''):'<div class="empty">В этом месяце расходов нет</div>';
+ const keys=[];const d=new Date();for(let i=5;i>=0;i--){let x=new Date(d.getFullYear(),d.getMonth()-i,1);keys.push(x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0'))}
+ document.getElementById('monthlySummary').innerHTML=keys.map(k=>{let a=transactions.filter(t=>monthKey(t.date)===k),i=sum(a,'income'),o=sum(a,'expense');return `<div class="transaction"><div class="tx-info"><div class="tx-title">${monthLabel(k)} ${k.slice(0,4)}</div><div class="tx-sub">Доходы ${fmt(i)} · Расходы ${fmt(o)}</div></div><div class="tx-amount ${(i-o)>=0?'positive':'negative'}">${fmt(i-o)}</div></div>`}).join('');
+}
+function renderMonthFilter(){
+ const sel=document.getElementById('monthFilter'),old=sel.value,keys=[...new Set(transactions.map(t=>monthKey(t.date)))].sort().reverse();
+ sel.innerHTML='<option value="all">Все даты</option>'+keys.map(k=>`<option value="${k}">${monthLabel(k)} ${k.slice(0,4)}</option>`).join('');
+ if(keys.includes(old))sel.value=old;
+}
+function renderAll(){renderDashboard();renderMonthFilter();renderTransactions();renderAnalytics()}
+function showView(id){document.querySelectorAll('.view').forEach(v=>v.classList.toggle('active',v.id===id));document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('active',b.dataset.view===id));window.scrollTo(0,0)}
+function fillCategories(type,selected){const sel=document.getElementById('txCategory');sel.innerHTML=categories[type].map(c=>`<option>${c}</option>`).join('');if(selected&&categories[type].includes(selected))sel.value=selected}
+function openForm(type){resetForm();document.getElementById('txType').value=type;fillCategories(type);document.getElementById('formHeading').textContent=type==='income'?'Добавить доход':'Добавить расход';showView('add')}
+function resetForm(){editingId=null;document.getElementById('txForm').reset();document.getElementById('txDate').value=today();document.getElementById('formHeading').textContent='Новая операция';document.getElementById('cancelEdit').classList.add('hidden');fillCategories(document.getElementById('txType').value||'expense')}
+document.getElementById('txType').addEventListener('change',e=>fillCategories(e.target.value));
+document.getElementById('txForm').addEventListener('submit',e=>{e.preventDefault();const amount=Number(document.getElementById('txAmount').value);if(!Number.isFinite(amount)||amount<=0)return alert('Введите сумму больше нуля.');const item={id:editingId||crypto.randomUUID(),type:document.getElementById('txType').value,amount:Math.round(amount*100)/100,category:document.getElementById('txCategory').value,date:document.getElementById('txDate').value,description:document.getElementById('txDescription').value.trim()};if(editingId)transactions=transactions.map(t=>t.id===editingId?item:t);else transactions.push(item);saveData();resetForm();showView('dashboard')});
+function editTx(id){const t=transactions.find(t=>t.id===id);if(!t)return;editingId=id;document.getElementById('txType').value=t.type;fillCategories(t.type,t.category);document.getElementById('txAmount').value=t.amount;document.getElementById('txDate').value=t.date;document.getElementById('txDescription').value=t.description||'';document.getElementById('formHeading').textContent='Редактировать операцию';document.getElementById('cancelEdit').classList.remove('hidden');showView('add')}
+function deleteTx(id){if(confirm('Удалить эту операцию?')){transactions=transactions.filter(t=>t.id!==id);saveData()}}
+function exportData(){const blob=new Blob([JSON.stringify({app:'FinTrack',version:1,exportedAt:new Date().toISOString(),transactions},null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='fintrack-backup.json';a.click();URL.revokeObjectURL(a.href)}
+function clearData(){if(confirm('Удалить все операции? Сначала экспортируйте резервную копию, если она нужна.')){transactions=[];saveData()}}
+function importCSV(event){
+ const file=event.target.files?.[0];if(!file)return;const reader=new FileReader();
+ reader.onload=()=>{try{const text=String(reader.result||'').replace(/^\uFEFF/,'');const lines=text.split(/\r?\n/).filter(x=>x.trim());if(lines.length<2)throw Error('Файл пуст или содержит только заголовок.');
+ const delimiter=[',',';','\t'].sort((a,b)=>lines[0].split(b).length-lines[0].split(a).length)[0];
+ const parse=line=>{let out=[],cur='',q=false;for(let i=0;i<line.length;i++){const c=line[i];if(c==='"'&&line[i+1]==='"'&&q){cur+='"';i++}else if(c==='"')q=!q;else if(c===delimiter&&!q){out.push(cur.trim());cur=''}else cur+=c}out.push(cur.trim());return out};
+ const headers=parse(lines[0]).map(x=>x.toLowerCase());const find=terms=>headers.findIndex(h=>terms.some(t=>h.includes(t)));
+ const dateI=find(['date','data','дата','booked']);const descI=find(['description','title','opis','tytuł','details','nazwa','опис']);const amountI=find(['amount','kwota','сумма','wartość']);const debitI=find(['debit','obciąż','wydatek']);const creditI=find(['credit','uznanie','wpływ']);
+ if(dateI<0|| (amountI<0&&debitI<0&&creditI<0))throw Error('Не найдены колонки даты и суммы. Проверьте формат выписки.');
+ let added=0;for(const line of lines.slice(1)){const row=parse(line);const dateRaw=(row[dateI]||'').trim();let date=dateRaw;if(/^\d{2}\.\d{2}\.\d{4}$/.test(date))date=date.split('.').reverse().join('-');else if(/^\d{4}\/\d{2}\/\d{2}$/.test(date))date=date.replaceAll('/','-');if(!/^\d{4}-\d{2}-\d{2}$/.test(date))continue;
+ const parseNum=s=>{s=String(s||'').replace(/\s/g,'').replace(/[^\d,.-]/g,'');if(s.includes(',')&&s.includes('.'))s=s.lastIndexOf(',')>s.lastIndexOf('.')?s.replace(/\./g,'').replace(',','.'):s.replace(/,/g,'');else if(s.includes(','))s=s.replace(',','.');return Number(s)};
+ let amount=0,type='expense';if(amountI>=0){amount=parseNum(row[amountI]);if(amount<0){type='expense';amount=Math.abs(amount)}else type='income'}else{const debit=parseNum(row[debitI]),credit=parseNum(row[creditI]);if(credit>0){amount=credit;type='income'}else{amount=Math.abs(debit);type='expense'}}
+ if(!Number.isFinite(amount)||amount<=0)continue;const desc=descI>=0?row[descI]:'Импорт из выписки';transactions.push({id:crypto.randomUUID(),type,amount:Math.round(amount*100)/100,category:type==='income'?'Другое':'Другое',date,description:desc||'Операция из выписки'});added++}
+ saveData();alert(`Импортировано операций: ${added}. Проверьте даты, суммы и категории.`);showView('transactions');
+ }catch(err){alert('Не удалось импортировать файл: '+err.message)}finally{event.target.value=''}};
+ reader.readAsText(file,'utf-8')
+}
+document.getElementById('txDate').value=today();fillCategories('expense');renderAll();
+if('serviceWorker' in navigator && location.protocol.startsWith('http'))navigator.serviceWorker.register('./sw.js').catch(()=>{});
+</script>
+</body>
+</html>
