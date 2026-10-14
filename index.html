@@ -521,6 +521,12 @@ function animateMoneyValue(el,target,decorate=value=>fmt(value)){
  };
  el._ftAnimationFrame=requestAnimationFrame(tick);
 }
+function shortChartAmount(value){
+ const n=Number(value)||0,abs=Math.abs(n),sign=n<0?'−':'';
+ if(abs>=1000000)return sign+(abs/1000000).toLocaleString('pl-PL',{maximumFractionDigits:1})+' mln';
+ if(abs>=1000)return sign+(abs/1000).toLocaleString('pl-PL',{maximumFractionDigits:1})+' tys.';
+ return sign+Math.round(abs).toLocaleString('pl-PL');
+}
 function lastSixMonthsData(){
  const keys=[],d=new Date();
  for(let i=5;i>=0;i--){const x=new Date(d.getFullYear(),d.getMonth()-i,1);keys.push(x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0'))}
