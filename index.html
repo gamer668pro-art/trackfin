@@ -233,16 +233,57 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:#8976ff;box-sh
  </div>
  <div class="card">
   <h2>Спросить советника</h2>
-  <p class="muted">Локальный анализ расходов, бюджета, накоплений и прогноза. ИИ пока не подключён.</p>
-  <div class="field"><label for="advisorQuestion">Вопрос</label><input id="advisorQuestion" maxlength="180" placeholder="Например, как быстрее накопить?"></div>
+  <p class="muted">Выбери категорию, затем конкретный вопрос. Ответ рассчитывается по операциям и целям, сохранённым в FinTrack. ИИ пока не подключён.</p>
+  <div class="field"><label for="advisorQuestion">Свой вопрос</label><input id="advisorQuestion" maxlength="180" placeholder="Например, хватит ли денег до зарплаты?"></div>
   <button class="primary" type="button" onclick="askAdvisor()">Получить ответ</button>
-  <div class="advisor-actions">
-   <button type="button" onclick="quickAdvisor('расходы')">Анализ расходов</button>
-   <button type="button" onclick="quickAdvisor('цель')">Финансовые цели</button>
-   <button type="button" onclick="quickAdvisor('экономия')">Где экономить?</button>
-   <button type="button" onclick="quickAdvisor('бюджет')">Бюджет 50/30/20</button>
+  <div class="advisor-topic-list">
+   <details class="advisor-topic" open><summary>1. Мой финансовый статус</summary><div class="advisor-actions">
+    <button type="button" onclick="quickAdvisor('Сколько денег у меня остаётся?')">Сколько денег остаётся?</button>
+    <button type="button" onclick="quickAdvisor('Как изменилось моё финансовое положение?')">Как изменилось положение?</button>
+    <button type="button" onclick="quickAdvisor('Могу ли я позволить себе дополнительные расходы?')">Могу ли тратить больше?</button>
+   </div></details>
+   <details class="advisor-topic"><summary>2. Анализ расходов</summary><div class="advisor-actions">
+    <button type="button" onclick="quickAdvisor('На что я трачу больше всего?')">Куда уходит больше всего?</button>
+    <button type="button" onclick="quickAdvisor('Какие категории расходов выросли?')">Какие категории выросли?</button>
+    <button type="button" onclick="quickAdvisor('Какие покупки повторяются слишком часто?')">Какие покупки повторяются?</button>
+   </div></details>
+   <details class="advisor-topic"><summary>3. Обязательные и необязательные расходы</summary><div class="advisor-actions">
+    <button type="button" onclick="quickAdvisor('Сколько уходит на обязательные платежи?')">Сколько обязательных расходов?</button>
+    <button type="button" onclick="quickAdvisor('На чём можно сэкономить без ущерба для жизни?')">На чём безопасно экономить?</button>
+    <button type="button" onclick="quickAdvisor('Какие подписки стоит пересмотреть?')">Какие подписки проверить?</button>
+   </div></details>
+   <details class="advisor-topic"><summary>4. Бюджет до конца месяца</summary><div class="advisor-actions">
+    <button type="button" onclick="quickAdvisor('Сколько можно тратить в день?')">Сколько тратить в день?</button>
+    <button type="button" onclick="quickAdvisor('Хватит ли денег до конца месяца?')">Хватит ли до конца месяца?</button>
+    <button type="button" onclick="quickAdvisor('Какой лимит установить на следующую неделю?')">Лимит на следующую неделю</button>
+   </div></details>
+   <details class="advisor-topic"><summary>5. Накопления и финансовые цели</summary><div class="advisor-actions">
+    <button type="button" onclick="quickAdvisor('Сколько откладывать каждый месяц?')">Сколько откладывать?</button>
+    <button type="button" onclick="quickAdvisor('Когда я накоплю нужную сумму?')">Когда накоплю нужную сумму?</button>
+    <button type="button" onclick="quickAdvisor('Как быстрее достичь своей цели?')">Как быстрее достичь цели?</button>
+   </div></details>
+   <details class="advisor-topic"><summary>6. Доходы и их рост</summary><div class="advisor-actions">
+    <button type="button" onclick="quickAdvisor('Какую часть дохода я сохраняю?')">Какую часть сохраняю?</button>
+    <button type="button" onclick="quickAdvisor('Сколько нужно зарабатывать для моей цели?')">Какой доход нужен для цели?</button>
+    <button type="button" onclick="quickAdvisor('Как изменится бюджет при увеличении дохода?')">Что даст рост дохода?</button>
+   </div></details>
+   <details class="advisor-topic"><summary>7. Перед покупкой</summary><div class="advisor-actions">
+    <button type="button" onclick="quickAdvisor('Могу ли я купить эту вещь сейчас?')">Могу ли купить сейчас?</button>
+    <button type="button" onclick="quickAdvisor('Как покупка повлияет на бюджет?')">Влияние покупки на бюджет</button>
+    <button type="button" onclick="quickAdvisor('Лучше купить сейчас или накопить позже?')">Купить или накопить?</button>
+   </div></details>
+   <details class="advisor-topic"><summary>8. Прогноз и риски</summary><div class="advisor-actions">
+    <button type="button" onclick="quickAdvisor('Какой результат ожидается к концу месяца?')">Результат к концу месяца</button>
+    <button type="button" onclick="quickAdvisor('Что будет, если расходы вырастут на 10%?')">Если расходы вырастут на 10%</button>
+    <button type="button" onclick="quickAdvisor('Какой резерв нужен на непредвиденные ситуации?')">Какой нужен резерв?</button>
+   </div></details>
+   <details class="advisor-topic"><summary>9. Поиск финансовых проблем</summary><div class="advisor-actions">
+    <button type="button" onclick="quickAdvisor('Есть ли расходы, которые я забыл учесть?')">Какие расходы не учтены?</button>
+    <button type="button" onclick="quickAdvisor('Почему баланс оказался отрицательным?')">Почему баланс отрицательный?</button>
+    <button type="button" onclick="quickAdvisor('Какие операции нужно проверить?')">Какие операции проверить?</button>
+   </div></details>
   </div>
-  <div id="advisorAnswer" class="advisor-answer" aria-live="polite">Выбери тему или введи вопрос. Ответ будет сформирован на основе локальных данных.</div>
+  <div id="advisorAnswer" class="advisor-answer" aria-live="polite">Выбери вопрос выше. Ответ появится здесь.</div>
  </div>
 </section>
 
@@ -527,7 +568,104 @@ function renderAdvisor(){
    :'Лимит не установлен. Дневной ориентир по внесённым операциям: '+advisorMoney(daily)+'. Учти будущие обязательные платежи.';
  }
 }
-function advisorAnswerFor(question){const q=String(question||'').toLocaleLowerCase('ru-RU'),cur=advisorPeriodStats(currentMonth()),ex=cur.items.filter(t=>t.type==='expense'),cats={};ex.forEach(t=>{const c=t.category||'Другое';cats[c]=(cats[c]||0)+Number(t.amount||0)});const sorted=Object.entries(cats).sort((a,b)=>b[1]-a[1]);if(!q.trim())return 'Введи вопрос или выбери готовую тему.';if(/прогноз|конец месяца|останется/.test(q))return 'Прогноз результата месяца: '+advisorMoney(advisorForecast(cur))+'. Это оценка при сохранении текущего темпа расходов; будущие счета и доходы неизвестны.';if(/цель|накоп|машин|телефон/.test(q)){if(!goals.length)return 'Пока нет финансовых целей. Создай цель в разделе «Статистика».';return goals.map(g=>'«'+g.name+'»: накоплено '+advisorMoney(goalBalance(g))+' из '+advisorMoney(g.target)+', осталось '+advisorMoney(Math.max(0,Number(g.target)-goalBalance(g)))+'.').join('\n')}if(/расход|трат|покуп|категор/.test(q)){const needs=ex.filter(t=>advisorCategoryGroup(t.category)==='needs').reduce((a,t)=>a+Number(t.amount||0),0);return 'Доходы: '+advisorMoney(cur.income)+', расходы: '+advisorMoney(cur.expense)+', остаток: '+advisorMoney(cur.net)+'.\nОбязательные категории: '+advisorMoney(needs)+', остальные категории: '+advisorMoney(cur.expense-needs)+'.\nКрупнейшие категории:\n'+(sorted.slice(0,5).map(x=>'• '+x[0]+': '+advisorMoney(x[1])).join('\n')||'Расходов пока нет')+'. Проверь классификацию отдельных покупок.'}if(/эконом|сократ|лишн|мелк/.test(q)){const wants=ex.filter(t=>advisorCategoryGroup(t.category)==='wants').reduce((a,t)=>a+Number(t.amount||0),0);return 'Расходы в категориях, не отмеченных обязательными: '+advisorMoney(wants)+'. Это кандидаты для проверки, не гарантированная экономия. Начни с редко используемых подписок и повторяющихся покупок.'}if(/бюджет|лимит|день|остаток|позволить/.test(q)){const rem=advisorSettings.monthlyBudget>0?advisorSettings.monthlyBudget-cur.expense:cur.net;return 'Доходы: '+advisorMoney(cur.income)+', расходы: '+advisorMoney(cur.expense)+', результат: '+advisorMoney(cur.net)+'. '+(advisorSettings.monthlyBudget>0?'Остаток месячного лимита: '+advisorMoney(rem)+'. ':'Месячный лимит не установлен. ')+'Дневной ориентир: '+advisorMoney(Math.max(0,rem)/advisorDaysRemaining())+'. Учти обязательные платежи.'}return 'Я могу анализировать расходы по категориям, обязательные и необязательные траты, бюджет, дневной лимит, прогноз остатка и финансовые цели.'}
+function advisorAnswerFor(question){
+ const q=String(question||'').toLocaleLowerCase('ru-RU');
+ const cur=advisorPeriodStats(currentMonth());
+ const ex=cur.items.filter(t=>t.type==='expense');
+ const cats={};
+ ex.forEach(t=>{const c=t.category||'Другое';cats[c]=(cats[c]||0)+Number(t.amount||0);});
+ const sorted=Object.entries(cats).sort((a,b)=>b[1]-a[1]);
+ const needs=ex.filter(t=>advisorCategoryGroup(t.category)==='needs').reduce((s,t)=>s+Number(t.amount||0),0);
+ const wants=cur.expense-needs;
+ const money=n=>advisorMoney(n);
+ const expenseDays=Math.max(1,new Date().getDate());
+ const lastDay=new Date(new Date().getFullYear(),new Date().getMonth()+1,0).getDate();
+ const forecast=advisorForecast(cur);
+ const budget=advisorSettings.monthlyBudget;
+ const remaining=budget>0?budget-cur.expense:cur.net;
+ const goalList=goals.map(g=>({g,saved:goalBalance(g),left:Math.max(0,Number(g.target)-goalBalance(g))}));
+ if(!q.trim())return 'Выбери готовый вопрос или введи свой.';
+ if(/категори.*вырос|изменил.*финансов|повторяют|повторяющ|чаще/.test(q)){
+  const prev=new Date();prev.setMonth(prev.getMonth()-1);
+  const prevKey=prev.getFullYear()+'-'+String(prev.getMonth()+1).padStart(2,'0');
+  const prevItems=transactions.filter(t=>monthKey(t.date)===prevKey&&t.type==='expense');
+  const prevCats={};prevItems.forEach(t=>{const c=t.category||'Другое';prevCats[c]=(prevCats[c]||0)+Number(t.amount||0);});
+  const lines=sorted.map(([c,v])=>{const delta=v-(prevCats[c]||0);return c+': '+money(v)+(prevCats[c]!==undefined?' (к прошлому месяцу '+(delta>=0?'+':'')+money(delta)+')':' (нет данных за прошлый месяц)');});
+  const repeats={};ex.forEach(t=>{const k=(t.description||t.category||'Операция').trim();if(k)repeats[k]=(repeats[k]||0)+1;});
+  if(/повторяют|повторяющ|чаще/.test(q)){const frequent=Object.entries(repeats).filter(x=>x[1]>1).sort((a,b)=>b[1]-a[1]).slice(0,7);return frequent.length?'Повторяющиеся описания операций за этот месяц:\n'+frequent.map(x=>'• '+x[0]+': '+x[1]+' раз').join('\n')+'\nПохожие названия могут относиться к разным покупкам — проверь список.':'В этом месяце не найдено одинаковых описаний расходов. Магазины с разными названиями могут быть одной категорией.';}
+  return lines.length?'Расходы этого месяца по категориям:\n'+lines.join('\n')+'\nСравнение приблизительное: учитываются только записанные операции.':'В этом месяце расходы не внесены.';
+ }
+ if(/сколько денег.*оста|сколько.*оста|финансов.*положен|дополнительн.*расход|тратить больше|позволить себе/.test(q)){
+  return 'За текущий месяц: доходы '+money(cur.income)+', расходы '+money(cur.expense)+', разница '+money(cur.net)+'. '+(budget>0?'Остаток установленного лимита: '+money(remaining)+'. ':'Месячный лимит не задан. ')+'Это сумма по внесённым операциям, а не подтверждённый остаток на банковском счёте. Перед дополнительной покупкой вычти предстоящие счета и обязательные платежи.';
+ }
+ if(/обязательн.*платеж|обязательн.*расход|без ущерба|эконом|сократ|лишн|подписк/.test(q)){
+  if(/подписк/.test(q)){
+   const subs=ex.filter(t=>String(t.category||'').toLocaleLowerCase('ru-RU').includes('подпис'));
+   return subs.length?'В категории «Подписки» учтено '+money(subs.reduce((s,t)=>s+Number(t.amount||0),0))+':\n'+subs.map(t=>'• '+(t.description||'Подписка')+' — '+money(t.amount)+' ('+t.date+')').join('\n')+'\nПроверь, пользуешься ли каждой подпиской и когда списывается оплата.':'Операций в категории «Подписки» нет. Проверь категории импортированных операций.';
+  }
+  return 'По твоим настройкам обязательными считаются категории: '+advisorSettings.essentialCategories.join(', ')+'.\nОбязательные категории: '+money(needs)+'. Остальные категории: '+money(wants)+'.\nДля поиска экономии проверь редко используемые подписки, импульсивные покупки и повторяющиеся траты. Категория — ориентир, а не доказательство, что отдельная покупка необязательна.';
+ }
+ if(/сколько.*день|дневн|следующ.*недел|неделю/.test(q)){
+  const days=/недел/.test(q)?7:advisorDaysRemaining();
+  const available=Math.max(0,budget>0?remaining:cur.net);
+  return 'По внесённым операциям ориентир составляет '+money(available/days)+' в день на ближайшие '+days+' дн. '+(budget>0?'Месячный лимит: '+money(budget)+', осталось '+money(remaining)+'. ':'Месячный лимит не установлен, расчёт основан на текущей разнице доходов и расходов. ')+'Сначала зарезервируй деньги на счета, аренду, питание и другие необходимые платежи.';
+ }
+ if(/хватит.*конца месяца|до конца месяца/.test(q)){
+  return 'Прогноз результата месяца: '+money(forecast)+'. Доходы, внесённые на сегодня: '+money(cur.income)+', расходы: '+money(cur.expense)+'. Расчёт продолжает текущий темп расходов и не знает о будущих доходах или счетах. Для более точного ответа добавь ожидаемые платежи в учёт.';
+ }
+ if(/сколько откладывать|часть дохода|сохраняю/.test(q)){
+  const rate=cur.income>0?Math.max(0,cur.net)/cur.income:0;
+  return 'Сейчас учтено доходов '+money(cur.income)+' и расходов '+money(cur.expense)+'. Положительная разница — '+money(Math.max(0,cur.net))+(cur.income>0?' ('+Math.round(rate*100)+'% дохода).':' .')+' Начни с посильной суммы после обязательных платежей; не откладывай деньги, которые понадобятся на ближайшие счета.';
+ }
+ if(/когда.*накоп|быстрее.*цели|финансов.*цели|цель|накоп/.test(q)){
+  if(!goalList.length)return 'Финансовых целей пока нет. Создай цель в разделе «Статистика», указав сумму и срок. После этого я смогу оценить необходимый ежемесячный взнос.';
+  return 'Твои цели:\n'+goalList.map(({g,saved,left})=>{const need=goalMonthlyNeed(g);return '• '+g.name+': накоплено '+money(saved)+' из '+money(g.target)+', осталось '+money(left)+(need!==null?', ориентир '+money(need)+'/мес.':'')+'.';}).join('\n')+'\nЧтобы ускорить накопление, проверь необязательные категории и выбери реалистичный взнос после обязательных платежей.';
+ }
+ if(/доход|зарабатывать|рост доход|увеличен.*доход/.test(q)){
+  if(/увеличен.*доход|рост доход|вырастет доход/.test(q)){
+   const extra=cur.income*.1;
+   return 'Если доход вырастет на 10%, это добавит около '+money(extra)+' в месяц при сохранении текущего дохода '+money(cur.income)+'. Если расходы не вырастут, разница между доходами и расходами улучшится на ту же сумму. Это сценарный расчёт, а не прогноз заработка.';
+  }
+  if(/цели|цель/.test(q)&&goalList.length){
+   return 'Для цели «'+goalList[0].g.name+'» осталось '+money(goalList[0].left)+'. '+(goalList[0].g.deadline?'Указан срок '+goalList[0].g.deadline+'.':'Срок не задан.')+' Нужный доход зависит от обязательных расходов и срока. Сейчас учтённые доходы составляют '+money(cur.income)+', расходы — '+money(cur.expense)+'.';
+  }
+  return 'Учтённые доходы за месяц: '+money(cur.income)+'. Расходы: '+money(cur.expense)+'. Разница: '+money(cur.net)+'. Приложение не может определить способы увеличить заработок только по транзакциям, но показывает, какую часть текущего дохода съедают расходы. Для точного расчёта добавь ожидаемые доходы.';
+ }
+ if(/купить|покупк|вещь|сейчас или|накопить позже/.test(q)){
+  const amountMatch=q.match(/(\d+(?:[.,]\d{1,2})?)\s*(?:zł|зл|злот|pln)?/);
+  const price=amountMatch?Number(amountMatch[1].replace(',','.')):null;
+  if(price!==null&&price>0){
+   const after=cur.net-price;
+   return 'Покупка за '+money(price)+' изменит текущую разницу с '+money(cur.net)+' до '+money(after)+'. '+(after<0?'По внесённым операциям это приведёт к отрицательному результату месяца.':'После покупки останется положительная разница, но проверь будущие обязательные платежи и резерв.')+' Это расчёт, а не автоматическое разрешение на покупку.';
+  }
+  return 'Чтобы оценить покупку, введи вопрос с суммой, например: «Могу ли я купить за 300 zł?». Сейчас разница за месяц составляет '+money(cur.net)+'. Без цены и информации о предстоящих платежах нельзя надёжно сказать, безопасна ли покупка.';
+ }
+ if(/10%|вырастут расходы|увеличатся расходы/.test(q)){
+  const extra=cur.expense*.1;
+  return 'Если расходы вырастут на 10%, они увеличатся примерно на '+money(extra)+' и составят '+money(cur.expense+extra)+'. При неизменном доходе результат месяца станет '+money(cur.income-(cur.expense+extra))+'. Расчёт основан на внесённых расходах.';
+ }
+ if(/резерв|непредвиден/.test(q)){
+  const monthly=cur.expense;
+  return 'Ориентир резерва: 1 месяц текущих расходов — '+money(monthly)+', 3 месяца — '+money(monthly*3),+'. Начинай с доступной суммы и постепенно наращивай резерв. Расходы должны быть полными и включать жильё, питание, транспорт, здоровье и счета.';
+ }
+ if(/забыл учесть|не учтены|финансов.*проблем|операци.*провер|проверить/.test(q)){
+  const unknown=ex.filter(t=>!t.category||t.category==='Другое');
+  const negative=transactions.filter(t=>!t.date||!Number.isFinite(Number(t.amount))||Number(t.amount)<=0);
+  const lines=[];
+  if(unknown.length)lines.push('Расходы в категории «Другое»: '+unknown.length+' на '+money(unknown.reduce((s,t)=>s+Number(t.amount||0),0))+'. Проверь их описания и назначь категории.');
+  if(negative.length)lines.push('Операции с пустой датой или некорректной суммой: '+negative.length+'.');
+  if(!lines.length)lines.push('Я не вижу явных ошибок в сохранённых полях, но не могу определить пропущенные банковские операции без сверки с выпиской.');
+  return lines.join('\n')+'\nСверь операции FinTrack с банковской выпиской за тот же период.';
+ }
+ if(/отрицательн.*баланс|баланс.*отриц/.test(q)){
+  return 'Баланс по внесённым операциям: доходы '+money(sum(transactions,'income'))+', расходы '+money(sum(transactions,'expense'))+'. '+(sum(transactions,'income')<sum(transactions,'expense')?'Расходы превышают все учтённые доходы. Проверь период, пропущенные доходы, переводы и возможные дубликаты.':'Общий учтённый баланс не отрицательный. Возможно, ты смотришь на другой период или банковский остаток, который не совпадает с учётом приложения.')+' FinTrack не читает банковский счёт автоматически.';
+ }
+ if(/прогноз|конец месяца|останется/.test(q))return 'Прогноз результата месяца: '+money(forecast)+'. Это оценка при сохранении текущего темпа расходов; будущие счета и доходы неизвестны.';
+ if(/расход|трат|категор/.test(q)){
+  return 'Доходы: '+money(cur.income)+', расходы: '+money(cur.expense)+', разница: '+money(cur.net)+'.\n'+(sorted.map(x=>'• '+x[0]+': '+money(x[1])).join('\n')||'Расходов пока нет')+'\nОбязательные категории: '+money(needs)+', остальные: '+money(wants)+'.';
+ }
+ return 'Могу проанализировать бюджет, категории расходов, обязательные траты, накопления, покупку и прогноз. Выбери один из готовых вопросов или добавь в свой вопрос сумму и срок.';
+}
 function askAdvisor(){const input=document.getElementById('advisorQuestion');document.getElementById('advisorAnswer').textContent=advisorAnswerFor(input.value)}
 function quickAdvisor(topic){document.getElementById('advisorQuestion').value=topic;askAdvisor()}
 function renderAll(){renderDashboard();renderMonthFilter();renderTransactions();renderAnalytics();renderGoals();renderMicroAnalysis();renderAdvisor();if(document.getElementById('search'))runSearch()}
