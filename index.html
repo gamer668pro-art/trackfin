@@ -666,14 +666,17 @@ function enableDashboardWidgetReorder(){
  let pressed=null,dragMode=null,startY=0,moved=false,animationFrame=0;
  const clearMarks=()=>widgets().forEach(el=>el.classList.remove('widget-drop-before','widget-drop-after'));
  const animateSiblings=(before,exclude)=>{
-  for(const [el,top] of before){if(el===exclude||!el.isConnected)continue;const delta=top-el.getBoundingClientRect().top;if(Math.abs(delta)<1)continue;el.classList.add('widget-reorder-animating');el.style.transition='none';el.style.transform=`translateY(${delta}px)`;}
+  const deltas=[];
+  for(const [el,top] of before){if(el===exclude||!el.isConnected)continue;const delta=top-el.getBoundingClientRect().top;if(Math.abs(delta)>=1)deltas.push([el,delta]);}
+  for(const [el,delta] of deltas){el.classList.add('widget-reorder-animating');el.style.transition='none';el.style.transform=`translateY(${delta}px)`;}
   if(animationFrame)cancelAnimationFrame(animationFrame);
-  animationFrame=requestAnimationFrame(()=>{for(const [el] of before){if(el===exclude)continue;el.style.transition='';el.style.transform='';}animationFrame=0;});
+  animationFrame=requestAnimationFrame(()=>{for(const [el] of deltas){el.style.transition='';el.style.transform='';}animationFrame=0;});
  };
  const cleanup=()=>{
   if(pressed)pressed.classList.remove('widget-dragging');
   clearMarks();pressed=null;dragMode=null;moved=false;
-  widgets().forEach(el=>{el.classList.remove('widget-reorder-animating');el.style.transform='';el.style.transition=''});
+  const moving=widgets().filter(el=>el.classList.contains('widget-reorder-animating'));
+  setTimeout(()=>moving.forEach(el=>{el.classList.remove('widget-reorder-animating');el.style.transform='';el.style.transition=''}),220);
  };
  const moveAt=y=>{
   if(!pressed)return;
