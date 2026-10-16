@@ -249,7 +249,8 @@ nav button.active,nav button[aria-current="page"]{
 .dashboard-widget{position:relative}
 .dashboard-drag-handle{display:flex;align-items:center;justify-content:center;gap:6px;width:max-content;max-width:100%;margin:0 0 7px auto;padding:6px 10px;border:1px solid var(--line);border-radius:9px;background:var(--card);color:var(--muted);font:inherit;font-size:11px;cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
 .dashboard-drag-handle:active{cursor:grabbing}
-.dashboard-widget.widget-dragging{opacity:.68;outline:2px dashed var(--accent);outline-offset:2px;z-index:3}
+.dashboard-widget.widget-dragging{opacity:.78;outline:2px dashed var(--accent);outline-offset:2px;z-index:3;box-shadow:0 18px 45px rgba(0,0,0,.24)}
+.dashboard-widget.widget-reorder-animating{transition:transform .18s cubic-bezier(.2,.8,.2,1);will-change:transform}
 .dashboard-widget.widget-drop-before{border-top:3px solid var(--accent);padding-top:6px}
 .dashboard-widget.widget-drop-after{border-bottom:3px solid var(--accent);padding-bottom:6px}
 @media(prefers-reduced-motion:reduce){.dashboard-widget.widget-dragging{transition:none}}
@@ -536,7 +537,7 @@ function iconFor(t){const name=t.type==='income'&&(!t.category||t.category==='Д
 function signed(t){return (t.type==='income'?'+':'−')+fmt(t.amount)}
 function txHtml(t){return `<div class="transaction"><div class="tx-icon" data-category="${esc(t.category||"Другое")}">${iconFor(t)}</div><div class="tx-info"><div class="tx-title">${esc(t.description||t.category)}</div><div class="tx-sub">${esc(t.category)} · ${esc(t.date)}</div></div><div style="text-align:right"><div class="tx-amount ${t.type==='income'?'positive':'negative'}">${signed(t)}</div><div style="margin-top:5px;white-space:nowrap"><button class="small-button" onclick="editTx('${t.id}')">Изм.</button> <button class="small-button" onclick="deleteTx('${t.id}')">×</button></div></div></div>`}
 function listHtml(items){return items.length?items.slice().sort((a,b)=>b.date.localeCompare(a.date)).map(txHtml).join(''):'<div class="empty">Операций пока нет</div>'}
-function sum(items,type){return items.filter(t=>t.type===type).reduce((s,t)=>s+t.amount,0)}
+function sum(items,type){let total=0;for(const item of items){if(item.type===type)total+=Number(item.amount)||0}return total}
 function currentMonth(){return today().slice(0,7)}
 function animateMoneyValue(el,target,decorate=value=>fmt(value)){
  if(!el)return;
@@ -565,7 +566,9 @@ let chartPeriod='6m';
 function lastSixMonthsData(){
  const d=new Date(),keys=[];
  for(let i=5;i>=0;i--){const x=new Date(d.getFullYear(),d.getMonth()-i,1);keys.push(x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0'))}
- return keys.map(k=>{const a=transactions.filter(t=>monthKey(t.date)===k),income=sum(a,'income'),expense=sum(a,'expense');return {k,label:monthLabel(k),income,expense,net:moneyRound(income-expense),hasData:a.length>0,kind:'month'}});
+ const totals=new Map(keys.map(k=>[k,{income:0,expense:0,count:0}]));
+ for(const t of transactions){const bucket=totals.get(monthKey(t.date));if(!bucket)continue;if(t.type==='income')bucket.income+=Number(t.amount)||0;else if(t.type==='expense')bucket.expense+=Number(t.amount)||0;bucket.count++}
+ return keys.map(k=>{const a=totals.get(k);return {k,label:monthLabel(k),income:a.income,expense:a.expense,net:moneyRound(a.income-a.expense),hasData:a.count>0,kind:'month'}});
 }
 function getChartData(period=chartPeriod){
  const now=new Date();
@@ -575,9 +578,11 @@ function getChartData(period=chartPeriod){
  begin.setDate(begin.getDate()-count+1);
  const keys=[];
  for(let d=new Date(begin);d<=end;d.setDate(d.getDate()+1))keys.push(d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'));
+ const totals=new Map(keys.map(k=>[k,{income:0,expense:0,count:0}]));
+ for(const t of transactions){const bucket=totals.get(t.date);if(!bucket)continue;if(t.type==='income')bucket.income+=Number(t.amount)||0;else if(t.type==='expense')bucket.expense+=Number(t.amount)||0;bucket.count++}
  return keys.map(k=>{
-  const a=transactions.filter(t=>t.date===k),income=sum(a,'income'),expense=sum(a,'expense'),d=new Date(k+'T12:00:00');
-  return {k,label:d.toLocaleDateString('ru-RU',{day:'2-digit',month:'short'}).replace('.',''),income,expense,net:moneyRound(income-expense),hasData:a.length>0,kind:'day'};
+  const a=totals.get(k),d=new Date(k+'T12:00:00');
+  return {k,label:d.toLocaleDateString('ru-RU',{day:'2-digit',month:'short'}).replace('.',''),income:a.income,expense:a.expense,net:moneyRound(a.income-a.expense),hasData:a.count>0,kind:'day'};
  });
 }
 function chartTooltipHtml(v){
@@ -644,14 +649,6 @@ function saveDashboardWidgetOrderFromDOM(){
  localStorage.setItem(DASHBOARD_LAYOUT_KEY,JSON.stringify(dashboardLayout));
  renderDashboardWidgetControls();
 }
-function saveDashboardWidgetOrderFromDOM(){
- const host=document.getElementById('dashboard');
- if(!host)return;
- const visibleOrder=[...host.querySelectorAll(':scope > .dashboard-widget[data-widget]')].map(el=>el.dataset.widget);
- dashboardLayout.order=[...visibleOrder,...dashboardLayout.order.filter(id=>!visibleOrder.includes(id))];
- localStorage.setItem(DASHBOARD_LAYOUT_KEY,JSON.stringify(dashboardLayout));
- renderDashboardWidgetControls();
-}
 function enableDashboardWidgetReorder(){
  const host=document.getElementById('dashboard');
  if(!host||host.dataset.dragReorderReady==='1')return;
@@ -667,28 +664,30 @@ function enableDashboardWidgetReorder(){
   handle.style.touchAction='none';
   widget.insertBefore(handle,widget.firstChild);
  });
- let pressed=null,dragMode=null,startY=0,lastY=0,moved=false;
+ let pressed=null,dragMode=null,startY=0,moved=false,animationFrame=0;
  const clearMarks=()=>widgets().forEach(el=>el.classList.remove('widget-drop-before','widget-drop-after'));
+ const animateSiblings=(before,exclude)=>{
+  for(const [el,top] of before){if(el===exclude||!el.isConnected)continue;const delta=top-el.getBoundingClientRect().top;if(Math.abs(delta)<1)continue;el.classList.add('widget-reorder-animating');el.style.transition='none';el.style.transform=`translateY(${delta}px)`;}
+  if(animationFrame)cancelAnimationFrame(animationFrame);
+  animationFrame=requestAnimationFrame(()=>{for(const [el] of before){if(el===exclude)continue;el.style.transition='';el.style.transform='';}animationFrame=0;});
+ };
  const cleanup=()=>{
   if(pressed)pressed.classList.remove('widget-dragging');
   clearMarks();pressed=null;dragMode=null;moved=false;
+  widgets().forEach(el=>{el.classList.remove('widget-reorder-animating');el.style.transform='';el.style.transition=''});
  };
  const moveAt=y=>{
   if(!pressed)return;
-  lastY=y;
   const others=widgets().filter(el=>el!==pressed);
+  const before=new Map(others.map(el=>[el,el.getBoundingClientRect().top]));
   clearMarks();
   let insertBefore=null;
-  for(const candidate of others){
-   const rect=candidate.getBoundingClientRect();
-   if(y<rect.top+rect.height/2){insertBefore=candidate;candidate.classList.add('widget-drop-before');break;}
-  }
-  if(insertBefore)host.insertBefore(pressed,insertBefore);
-  else host.appendChild(pressed);
-  if(!insertBefore){
-   const last=widgets().filter(el=>el!==pressed).slice(-1)[0];
-   if(last)last.classList.add('widget-drop-after');
-  }
+  for(const candidate of others){const rect=candidate.getBoundingClientRect();if(y<rect.top+rect.height/2){insertBefore=candidate;candidate.classList.add('widget-drop-before');break;}}
+  const oldNext=pressed.nextElementSibling;
+  if(insertBefore&&oldNext!==insertBefore)host.insertBefore(pressed,insertBefore);
+  else if(!insertBefore&&oldNext)host.appendChild(pressed);
+  if(oldNext!==pressed.nextElementSibling)animateSiblings(before,pressed);
+  if(!insertBefore){const last=widgets().filter(el=>el!==pressed).slice(-1)[0];if(last)last.classList.add('widget-drop-after');}
  };
  const begin=(widget,mode,y)=>{
   if(!widget)return;
