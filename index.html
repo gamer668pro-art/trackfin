@@ -1095,7 +1095,70 @@ let transactionsReturnState=null;
 function editTx(id){const t=transactions.find(t=>t.id===id);if(!t)return;transactionsReturnState=captureTransactionsPosition();editingId=id;document.getElementById('txType').value=t.type;fillCategories(t.type,t.category);document.getElementById('txAmount').value=t.amount;document.getElementById('txDate').value=t.date;document.getElementById('txDescription').value=t.description||'';document.getElementById('formHeading').textContent='Редактировать операцию';document.getElementById('cancelEdit').classList.remove('hidden');showView('add')}
 function deleteTx(id){if(confirm('Удалить эту операцию?')){transactions=transactions.filter(t=>t.id!==id);saveData()}}
 function exportData(){const blob=new Blob([JSON.stringify({app:'FinTrack',version:3,exportedAt:new Date().toISOString(),transactions,goals,goalContributions,recurringPayments,dashboardLayout},null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='fintrack-backup.json';a.click();URL.revokeObjectURL(a.href)}
-function importBackup(event){const file=event.target.files?.[0];if(!file)return;const reader=new FileReader();reader.onload=()=>{try{const data=JSON.parse(String(reader.result||''));if(data.app!=='FinTrack'||!Array.isArray(data.transactions))throw Error('Это не резервная копия FinTrack или в ней нет списка операций.');const validTx=data.transactions.every(t=>t&&['income','expense'].includes(t.type)&&Number.isFinite(Number(t.amount))&&Number(t.amount)>0&&/^\d{4}-\d{2}-\d{2}$/.test(String(t.date||'')));if(!validTx)throw Error('В резервной копии есть операции с некорректными данными.');const nextGoals=Array.isArray(data.goals)?data.goals:[],nextContributions=Array.isArray(data.goalContributions)?data.goalContributions:[],nextRecurring=Array.isArray(data.recurringPayments)?data.recurringPayments:[],nextLayout=data.dashboardLayout&&typeof data.dashboardLayout==='object'?data.dashboardLayout:dashboardLayout;if(!confirm('Восстановить резервную копию? Текущие операции, цели, регулярные платежи и настройки будут заменены.'))return;transactions=data.transactions;goals=nextGoals;goalContributions=nextContributions;recurringPayments=nextRecurring;dashboardLayout=nextLayout;localStorage.setItem(KEY,JSON.stringify(transactions));localStorage.setItem(GOALS_KEY,JSON.stringify(goals));localStorage.setItem(CONTRIBUTIONS_KEY,JSON.stringify(goalContributions));localStorage.setItem(RECURRING_KEY,JSON.stringify(recurringPayments));localStorage.setItem(DASHBOARD_LAYOUT_KEY,JSON.stringify(dashboardLayout));renderAll();alert('Резервная копия восстановлена.')}catch(err){alert('Не удалось восстановить копию: '+(err?.message||'неизвестная ошибка'))}finally{event.target.value=''}};reader.readAsText(file)}
+function isValidDateKey(value){
+ if(!/^\\d{4}-\\d{2}-\\d{2}$/.test(String(value||'')))return false;
+ const [y,m,d]=String(value).split('-').map(Number);
+ const date=new Date(y,m-1,d);
+ return date.getFullYear()===y&&date.getMonth()===m-1&&date.getDate()===d;
+}
+function validateBackup(data){
+ if(!data||data.app!=='FinTrack'||!Array.isArray(data.transactions))throw Error('Это не резервная копия FinTrack или в ней нет списка операций.');
+ const ids=new Set();
+ const nextTransactions=data.transactions.map((t,index)=>{
+  if(!t||!['income','expense'].includes(t.type)||!Number.isFinite(Number(t.amount))||Number(t.amount)<=0||!isValidDateKey(t.date))throw Error('Некорректная операция №'+(index+1)+'. Проверь тип, положительную сумму и реальную календарную дату.');
+  const id=String(t.id||'').trim();
+  if(id&&ids.has(id))throw Error('В резервной копии повторяется идентификатор операции: '+id+'.');
+  if(id)ids.add(id);
+  return {...t,id:id||crypto.randomUUID(),amount:moneyRound(Number(t.amount)),category:String(t.category||'Другое'),description:String(t.description||'')};
+ });
+ const nextGoals=Array.isArray(data.goals)?data.goals:[];
+ const goalIds=new Set();
+ for(let i=0;i<nextGoals.length;i++){
+  const g=nextGoals[i];
+  if(!g||!String(g.id||'').trim()||!String(g.name||'').trim()||!Number.isFinite(Number(g.target))||Number(g.target)<=0||!Number.isFinite(Number(g.initial||0))||Number(g.initial||0)<0||(g.deadline&&!isValidDateKey(g.deadline)))throw Error('Некорректная финансовая цель №'+(i+1)+'.');
+  if(goalIds.has(String(g.id)))throw Error('В резервной копии повторяется идентификатор цели: '+g.id+'.');
+  goalIds.add(String(g.id));
+ }
+ const nextContributions=Array.isArray(data.goalContributions)?data.goalContributions:[];
+ for(let i=0;i<nextContributions.length;i++){
+  const c=nextContributions[i];
+  if(!c||!goalIds.has(String(c.goalId))||!['add','withdraw'].includes(c.type)||!Number.isFinite(Number(c.amount))||Number(c.amount)<=0||!isValidDateKey(c.date))throw Error('Некорректный взнос или снятие по цели №'+(i+1)+'.');
+ }
+ const nextRecurring=Array.isArray(data.recurringPayments)?data.recurringPayments:[];
+ const recurringIds=new Set();
+ for(let i=0;i<nextRecurring.length;i++){
+  const p=nextRecurring[i];
+  if(!p||!String(p.id||'').trim()||!String(p.title||'').trim()||!Number.isFinite(Number(p.amount))||Number(p.amount)<=0||!['weekly','monthly','yearly'].includes(p.frequency)||!isValidDateKey(p.nextDate))throw Error('Некорректный регулярный платёж №'+(i+1)+'.');
+  if(recurringIds.has(String(p.id)))throw Error('В резервной копии повторяется идентификатор платежа: '+p.id+'.');
+  recurringIds.add(String(p.id));
+ }
+ const layout=data.dashboardLayout&&typeof data.dashboardLayout==='object'&&!Array.isArray(data.dashboardLayout)?data.dashboardLayout:dashboardLayout;
+ return {transactions:nextTransactions,goals:nextGoals,goalContributions:nextContributions,recurringPayments:nextRecurring,dashboardLayout:layout};
+}
+function importBackup(event){
+ const file=event.target.files?.[0];if(!file)return;
+ const reader=new FileReader();
+ reader.onload=()=>{
+  try{
+   const data=JSON.parse(String(reader.result||''));
+   const next=validateBackup(data);
+   if(!confirm('Восстановить резервную копию? Текущие операции, цели, регулярные платежи и настройки будут заменены.'))return;
+   const updates=[[KEY,next.transactions],[GOALS_KEY,next.goals],[CONTRIBUTIONS_KEY,next.goalContributions],[RECURRING_KEY,next.recurringPayments],[DASHBOARD_LAYOUT_KEY,next.dashboardLayout]];
+   const previous=updates.map(([key])=>[key,localStorage.getItem(key)]);
+   try{
+    for(const [key,value] of updates)localStorage.setItem(key,JSON.stringify(value));
+   }catch(storageError){
+    for(const [key,value] of previous){try{if(value===null)localStorage.removeItem(key);else localStorage.setItem(key,value)}catch{}}
+    throw Error('Браузер не смог сохранить резервную копию. Текущие данные оставлены без изменений. Проверь свободное место в хранилище.');
+   }
+   transactions=next.transactions;goals=next.goals;goalContributions=next.goalContributions;recurringPayments=next.recurringPayments;dashboardLayout=loadDashboardLayout();
+   renderAll();alert('Резервная копия проверена и восстановлена.');
+  }catch(err){alert('Не удалось восстановить копию: '+(err?.message||'неизвестная ошибка'))}
+  finally{event.target.value=''}
+ };
+ reader.onerror=()=>{alert('Не удалось прочитать файл резервной копии.');event.target.value=''};
+ reader.readAsText(file);
+}
 function clearData(){if(confirm('Удалить все операции? Сначала экспортируйте резервную копию, если она нужна.')){transactions=[];saveData()}}
 function normalizeTransactionRef(value){
  return String(value??'').trim().replace(/\s+/g,' ').toLocaleLowerCase('pl-PL');
