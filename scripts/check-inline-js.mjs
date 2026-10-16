@@ -17,6 +17,8 @@ const required = [
   'function importBackup(event)',
   'function getChartData(period=chartPeriod)',
   'function saveDashboardWidgetOrderFromDOM()',
+  'function renderCashflowForecast()',
+  'data-widget="forecast"',
   'function ensurePdfJsLoaded()',
 ];
 for (const token of required) assert.ok(html.includes(token), `Missing expected app feature: ${token}`);
