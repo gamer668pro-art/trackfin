@@ -271,6 +271,7 @@ nav button.active,nav button[aria-current="page"]{
    <div class="metric"><div class="label">Расходы за месяц</div><div class="value negative" id="monthExpense">−0,00 zł</div></div>
   </div>
  </div></div>
+ <div class="dashboard-widget" data-widget="forecast"><div class="card"><div class="section-head"><h2>Прогноз денежных потоков</h2><span class="muted">30 / 90 дней</span></div><div class="metrics"><div class="metric"><div class="label">Плановые платежи · 30 дней</div><div class="value negative" id="forecastBills30">0,00 zł</div></div><div class="metric"><div class="label">Плановые платежи · 90 дней</div><div class="value negative" id="forecastBills90">0,00 zł</div></div></div><div class="metrics"><div class="metric"><div class="label">После платежей · 30 дней</div><div class="value" id="forecastBalance30">0,00 zł</div></div><div class="metric"><div class="label">После платежей · 90 дней</div><div class="value" id="forecastBalance90">0,00 zł</div></div></div><p class="muted" id="forecastNote">Расчёт основан на учтённом балансе и регулярных платежах. Будущие доходы и незапланированные расходы не учитываются.</p></div></div>
  <div class="dashboard-widget" data-widget="quick-actions"><div class="actions"><button class="action-income" onclick="openForm('income')">＋ Доход</button><button class="action-expense" onclick="openForm('expense')">− Расход</button></div></div>
  <div class="dashboard-widget" data-widget="chart"><div class="card"><div class="section-head"><h2>Движение денег</h2><label class="chart-period-label" for="dashboardChartPeriod"><span aria-hidden="true">▦</span> <select id="dashboardChartPeriod" class="chart-period" data-chart-period aria-label="Период графика"><option value="3d">3 дня</option><option value="7d">Неделя</option><option value="1m">Месяц</option><option value="6m" selected>6 месяцев</option></select></label></div><div id="chart"></div></div></div>
  <div class="dashboard-widget" data-widget="recurring"><div class="section-head"><h2>Предстоящие платежи</h2><button class="small-button" onclick="showView('recurring')">Управлять</button></div>
@@ -498,7 +499,7 @@ const KEY='fintrack_transactions_v1';
 const RECURRING_KEY='fintrack_recurring_payments_v1';
 const DASHBOARD_LAYOUT_KEY='fintrack_dashboard_layout_v1';
 const NAV_ORDER_KEY='fintrack_nav_order_v1';
-const DASHBOARD_WIDGETS=[{id:'balance',label:'Баланс и сводка'},{id:'quick-actions',label:'Быстрые действия'},{id:'chart',label:'График движения денег'},{id:'recurring',label:'Предстоящие платежи'},{id:'recent',label:'Последние операции'}];
+const DASHBOARD_WIDGETS=[{id:'balance',label:'Баланс и сводка'},{id:'forecast',label:'Прогноз денежных потоков'},{id:'quick-actions',label:'Быстрые действия'},{id:'chart',label:'График движения денег'},{id:'recurring',label:'Предстоящие платежи'},{id:'recent',label:'Последние операции'}];
 const categories={expense:['Продукты','Транспорт','Жильё','Здоровье','Покупки','Подписки','Развлечения','Образование','Бизнес','Другое'],income:['Зарплата','Бизнес','Перевод','Подарок','Инвестиции','Другое']};
 let transactions=loadData(), editingId=null;
 let recurringPayments=loadJSON(RECURRING_KEY,[]);
@@ -741,12 +742,23 @@ function enableDashboardWidgetReorder(){
   if(pressed&&dragMode==='mouse')finish();
  });
 }
+function renderCashflowForecast(){
+ const currentBalance=moneyRound(sum(transactions,'income')-sum(transactions,'expense'));
+ const bills30=moneyRound(upcomingRecurring(30).reduce((total,item)=>total+(Number(item.payment.amount)||0),0));
+ const bills90=moneyRound(upcomingRecurring(90).reduce((total,item)=>total+(Number(item.payment.amount)||0),0));
+ const projected30=moneyRound(currentBalance-bills30),projected90=moneyRound(currentBalance-bills90);
+ const values=[['forecastBills30',bills30],['forecastBills90',bills90],['forecastBalance30',projected30],['forecastBalance90',projected90]];
+ for(const [id,value] of values){const el=document.getElementById(id);if(!el)continue;el.textContent=fmt(value);if(id.startsWith('forecastBalance'))el.className='value '+(value<0?'negative':'positive')}
+ const note=document.getElementById('forecastNote');
+ if(note)note.textContent=recurringPayments.length?'Оценка: учтённый баланс минус известные регулярные платежи. Не учитывает будущие доходы, незапланированные расходы и стартовый остаток банковского счёта.':'Добавь регулярные платежи, чтобы увидеть, как они повлияют на учтённый баланс. Сейчас прогноз не учитывает будущие доходы и незапланированные расходы.';
+}
 function renderDashboard(){
  const m=transactions.filter(t=>monthKey(t.date)===currentMonth()),inc=sum(m,'income'),out=sum(m,'expense');
  animateMoneyValue(document.getElementById('balance'),sum(transactions,'income')-sum(transactions,'expense'));
  animateMoneyValue(document.getElementById('monthIncome'),inc,value=>'+'+fmt(value));animateMoneyValue(document.getElementById('monthExpense'),out,value=>'−'+fmt(value));
  document.getElementById('recentList').innerHTML=listHtml(transactions.slice().sort((a,b)=>b.date.localeCompare(a.date)).slice(0,5));
  renderSmoothLineChart('chart',getChartData(chartPeriod),chartPeriod);
+ renderCashflowForecast();
 }
 function renderTransactions(){
  const type=document.getElementById('typeFilter').value,month=document.getElementById('monthFilter').value;
