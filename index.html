@@ -510,7 +510,18 @@ const today=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth
 const monthKey=d=>String(d||'').slice(0,7);
 const monthLabel=key=>{const [y,m]=key.split('-').map(Number);return new Date(y,m-1,1).toLocaleDateString('ru-RU',{month:'short'});};
 function loadData(){try{return JSON.parse(localStorage.getItem(KEY)||'[]')}catch{return []}}
-function saveData(){localStorage.setItem(KEY,JSON.stringify(transactions));renderAll()}
+function saveData(){
+ const previous=localStorage.getItem(KEY);
+ try{localStorage.setItem(KEY,JSON.stringify(transactions))}
+ catch(error){
+  try{transactions=previous?JSON.parse(previous):[]}catch{}
+  alert('Не удалось сохранить изменения на устройстве. Проверь свободное место в хранилище браузера. Последние изменения не сохранены.');
+  renderAll();
+  return false;
+ }
+ renderAll();
+ return true;
+}
 function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function categorySvg(name){
  const icons={
