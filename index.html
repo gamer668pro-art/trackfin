@@ -244,25 +244,29 @@ nav button.active,nav button[aria-current="page"]{
 @media(max-width:480px){.chart-tooltip{padding:9px 10px;min-width:140px}.chart-legend{gap:9px}.line-chart .series-line{stroke-width:2.5}}
 @media(prefers-reduced-motion:reduce){.line-chart .series-line{stroke-dasharray:none;stroke-dashoffset:0;animation:none}.category-row,.category-row .fill{animation:none;transform:none}.chart-tooltip{transition:none}}
 
-.chart-period-label{display:inline-flex;align-items:center;gap:6px;color:var(--muted);flex-shrink:0}.chart-period{max-width:118px;padding:7px 9px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--text);font:inherit;font-size:12px;cursor:pointer}.chart-period:focus-visible{outline:2px solid var(--accent);outline-offset:2px}@media(max-width:480px){.chart-period{max-width:108px;padding:7px 6px}.chart-period-label{gap:4px}}</style>
+.chart-period-label{display:inline-flex;align-items:center;gap:6px;color:var(--muted);flex-shrink:0}.chart-period{max-width:118px;padding:7px 9px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--text);font:inherit;font-size:12px;cursor:pointer}.chart-period:focus-visible{outline:2px solid var(--accent);outline-offset:2px}@media(max-width:480px){.chart-period{max-width:108px;padding:7px 6px}.chart-period-label{gap:4px}}.dashboard-custom-head{display:flex;justify-content:flex-end;margin:0 0 10px}.dashboard-widget[hidden]{display:none}.widget-control{display:grid;grid-template-columns:1fr auto auto;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid var(--line)}.widget-control:last-child{border-bottom:0}.widget-control label{display:flex;align-items:center;gap:8px;font-size:14px}.widget-control input{accent-color:var(--accent);width:18px;height:18px}.widget-control button{padding:8px 10px;font-size:12px}.recurring-item{display:flex;align-items:flex-start;gap:12px;padding:14px 0;border-bottom:1px solid var(--line)}.recurring-item:last-child{border-bottom:0}.recurring-main{flex:1;min-width:0}.recurring-title{font-weight:650}.recurring-meta{font-size:12px;color:var(--muted);margin-top:5px;line-height:1.45}.recurring-amount{font-weight:700;white-space:nowrap}.recurring-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:9px}.recurring-actions button{font-size:12px;padding:8px 10px}.field-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.field-grid .field{min-width:0}@media(max-width:420px){.field-grid{grid-template-columns:1fr}}</style>
 </head>
 <body>
 <header><div><div class="muted">ЛИЧНЫЕ ФИНАНСЫ</div><h1>FinTrack</h1></div><span class="pill">PLN · локально</span></header>
 
 <main>
 <section id="dashboard" class="view active">
- <div class="card">
+ <div class="dashboard-custom-head"><button type="button" class="small-button" onclick="toggleDashboardSettings()" aria-expanded="false" id="dashboardSettingsToggle">Настроить панель</button></div>
+ <div id="dashboardSettings" class="card hidden" aria-label="Настройка главного экрана"><h2>Настройка главного экрана</h2><p class="muted">Включай нужные блоки и меняй их порядок. Настройки сохраняются на этом устройстве.</p><div id="dashboardWidgetControls"></div></div>
+ <div class="dashboard-widget" data-widget="balance"><div class="card">
   <div class="balance-label">Баланс по учтённым операциям</div>
   <div class="balance" id="balance">0,00 zł</div>
   <div class="metrics">
    <div class="metric"><div class="label">Доходы за месяц</div><div class="value positive" id="monthIncome">+0,00 zł</div></div>
    <div class="metric"><div class="label">Расходы за месяц</div><div class="value negative" id="monthExpense">−0,00 zł</div></div>
   </div>
- </div>
- <div class="actions"><button class="action-income" onclick="openForm('income')">＋ Доход</button><button class="action-expense" onclick="openForm('expense')">− Расход</button></div>
- <div class="card"><div class="section-head"><h2>Движение денег</h2><label class="chart-period-label" for="dashboardChartPeriod"><span aria-hidden="true">▦</span> <select id="dashboardChartPeriod" class="chart-period" data-chart-period aria-label="Период графика"><option value="3d">3 дня</option><option value="7d">Неделя</option><option value="1m">Месяц</option><option value="6m" selected>6 месяцев</option></select></label></div><div id="chart"></div></div>
- <div class="section-head"><h2>Последние операции</h2><button class="small-button" onclick="showView('transactions')">Все</button></div>
- <div class="card" id="recentList"></div>
+ </div></div>
+ <div class="dashboard-widget" data-widget="quick-actions"><div class="actions"><button class="action-income" onclick="openForm('income')">＋ Доход</button><button class="action-expense" onclick="openForm('expense')">− Расход</button></div></div>
+ <div class="dashboard-widget" data-widget="chart"><div class="card"><div class="section-head"><h2>Движение денег</h2><label class="chart-period-label" for="dashboardChartPeriod"><span aria-hidden="true">▦</span> <select id="dashboardChartPeriod" class="chart-period" data-chart-period aria-label="Период графика"><option value="3d">3 дня</option><option value="7d">Неделя</option><option value="1m">Месяц</option><option value="6m" selected>6 месяцев</option></select></label></div><div id="chart"></div></div></div>
+ <div class="dashboard-widget" data-widget="recurring"><div class="section-head"><h2>Предстоящие платежи</h2><button class="small-button" onclick="showView('recurring')">Управлять</button></div>
+ <div class="card"><div id="dashboardRecurring"></div><div class="metrics"><div class="metric"><div class="label">Платежи за 30 дней</div><div class="value negative" id="dashboardRecurringTotal">0,00 zł</div></div><div class="metric"><div class="label">Следующий платёж</div><div class="value" id="dashboardRecurringNext">—</div></div></div></div></div>
+ <div class="dashboard-widget" data-widget="recent"><div class="section-head"><h2>Последние операции</h2><button class="small-button" onclick="showView('transactions')">Все</button></div>
+ <div class="card" id="recentList"></div></div>
 </section>
 
 <section id="transactions" class="view">
@@ -446,6 +450,19 @@ nav button.active,nav button[aria-current="page"]{
  </form></div>
 </section>
 
+<section id="recurring" class="view">
+ <div class="section-head"><h2>Регулярные платежи</h2></div>
+ <div class="card"><p class="muted">Добавляй аренду, подписки, счета и другие повторяющиеся платежи. Они сохраняются только на этом устройстве и учитываются в обзоре ближайших расходов.</p>
+ <form id="recurringForm"><input id="recurringId" type="hidden">
+  <div class="field"><label for="recurringTitle">Название платежа</label><input id="recurringTitle" maxlength="80" placeholder="Например, интернет" required></div>
+  <div class="field-grid"><div class="field"><label for="recurringAmount">Сумма, zł</label><input id="recurringAmount" type="number" min="0.01" step="0.01" inputmode="decimal" required></div>
+  <div class="field"><label for="recurringFrequency">Периодичность</label><select id="recurringFrequency"><option value="weekly">Каждую неделю</option><option value="monthly" selected>Каждый месяц</option><option value="yearly">Каждый год</option></select></div></div>
+  <div class="field"><label for="recurringNextDate">Следующая дата платежа</label><input id="recurringNextDate" type="date" required></div>
+  <div class="actions"><button class="primary" type="submit" id="recurringSave">Сохранить платёж</button><button type="button" id="recurringCancel" class="hidden" onclick="resetRecurringForm()">Отмена</button></div>
+ </form></div>
+ <div class="section-head"><h2>Предстоящие платежи</h2><span class="muted">30 дней</span></div><div class="card"><div id="recurringUpcoming"></div><div class="metrics"><div class="metric"><div class="label">Всего за 30 дней</div><div class="value negative" id="recurringNext30Total">0,00 zł</div></div><div class="metric"><div class="label">Ближайший платёж</div><div class="value" id="recurringNextDue">—</div></div></div></div>
+ <div class="section-head"><h2>Все регулярные платежи</h2></div><div class="card"><div id="recurringList"></div></div>
+</section>
 <section id="settings" class="view">
  <div class="section-head"><h2>Данные и настройки</h2></div>
  <div class="card">
@@ -461,6 +478,7 @@ nav button.active,nav button[aria-current="page"]{
 <button class="active" data-view="dashboard" onclick="showView('dashboard')">Обзор</button>
 <button data-view="transactions" onclick="showView('transactions')">Операции</button>
 <button data-view="analytics" onclick="showView('analytics')">Статистика</button>
+<button data-view="recurring" onclick="showView('recurring')">Платежи</button>
 <button data-view="advisor" onclick="showView('advisor')">Советник</button>
 <button data-view="search" onclick="showView('search')">Поиск</button>
 <button data-view="settings" onclick="showView('settings')">Настройки</button>
@@ -468,8 +486,14 @@ nav button.active,nav button[aria-current="page"]{
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 <script>
 const KEY='fintrack_transactions_v1';
+const RECURRING_KEY='fintrack_recurring_payments_v1';
+const DASHBOARD_LAYOUT_KEY='fintrack_dashboard_layout_v1';
+const DASHBOARD_WIDGETS=[{id:'balance',label:'Баланс и сводка'},{id:'quick-actions',label:'Быстрые действия'},{id:'chart',label:'График движения денег'},{id:'recurring',label:'Предстоящие платежи'},{id:'recent',label:'Последние операции'}];
 const categories={expense:['Продукты','Транспорт','Жильё','Здоровье','Покупки','Подписки','Развлечения','Образование','Бизнес','Другое'],income:['Зарплата','Бизнес','Перевод','Подарок','Инвестиции','Другое']};
 let transactions=loadData(), editingId=null;
+let recurringPayments=loadJSON(RECURRING_KEY,[]);
+function loadDashboardLayout(){const saved=loadJSON(DASHBOARD_LAYOUT_KEY,{}),order=Array.isArray(saved.order)?saved.order.filter(id=>DASHBOARD_WIDGETS.some(w=>w.id===id)):[];DASHBOARD_WIDGETS.forEach(w=>{if(!order.includes(w.id))order.push(w.id)});const visible={};DASHBOARD_WIDGETS.forEach(w=>visible[w.id]=saved.visible?.[w.id]!==false);return {order,visible}}
+let dashboardLayout=loadDashboardLayout();
 const fmt=n=>new Intl.NumberFormat('pl-PL',{style:'currency',currency:'PLN'}).format(n);
 const today=()=>new Date().toISOString().slice(0,10);
 const monthKey=d=>String(d||'').slice(0,7);
@@ -579,6 +603,27 @@ function syncChartPeriod(value){
  renderSmoothLineChart('chart',getChartData(value),value);
  renderSmoothLineChart('analyticsTrend',getChartData(value),value);
 }
+function localDate(d){return new Date(d.getFullYear(),d.getMonth(),d.getDate())}
+function dateFromKey(key){const [y,m,d]=String(key||'').split('-').map(Number);return new Date(y,m-1,d)}
+function dateKey(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
+function frequencyLabel(v){return v==='weekly'?'каждую неделю':v==='yearly'?'каждый год':'каждый месяц'}
+function advanceDate(key,f){const d=dateFromKey(key);if(f==='weekly')d.setDate(d.getDate()+7);else if(f==='yearly')d.setFullYear(d.getFullYear()+1);else{const day=d.getDate();d.setDate(1);d.setMonth(d.getMonth()+1);d.setDate(Math.min(day,new Date(d.getFullYear(),d.getMonth()+1,0).getDate()))}return dateKey(d)}
+function recurringOccurrences(payment,days=30){const start=localDate(new Date()),end=localDate(new Date());end.setDate(end.getDate()+days);let d=dateFromKey(payment.nextDate),out=[],guard=0;while(d<start&&guard++<1000)d=dateFromKey(advanceDate(dateKey(d),payment.frequency));while(d<=end&&guard++<1000){out.push({payment,date:dateKey(d)});d=dateFromKey(advanceDate(dateKey(d),payment.frequency))}return out}
+function upcomingRecurring(days=30){return recurringPayments.flatMap(p=>recurringOccurrences(p,days)).sort((a,b)=>a.date.localeCompare(b.date))}
+function dateLabel(key){return dateFromKey(key).toLocaleDateString('ru-RU',{day:'numeric',month:'short',year:'numeric'})}
+function recurringHtml(item,actions=true){const p=item.payment||item;return '<div class="recurring-item"><div class="recurring-main"><div class="recurring-title">'+esc(p.title)+'</div><div class="recurring-meta">'+frequencyLabel(p.frequency)+' · '+dateLabel(item.date||p.nextDate)+'</div>'+(actions?'<div class="recurring-actions"><button type="button" onclick="editRecurring(\''+p.id+'\')">Изменить</button><button type="button" onclick="deleteRecurring(\''+p.id+'\')">Удалить</button></div>':'')+'</div><div class="recurring-amount">'+fmt(Number(p.amount)||0)+'</div></div>'}
+function renderRecurring(){const items=upcomingRecurring(30),total=moneyRound(items.reduce((s,x)=>s+Number(x.payment.amount||0),0)),next=items.length?dateLabel(items[0].date):'—';const up=document.getElementById('recurringUpcoming');if(up)up.innerHTML=items.slice(0,5).map(x=>recurringHtml(x,false)).join('')||'<div class="empty">На ближайшие 30 дней платежей нет.</div>';const list=document.getElementById('recurringList');if(list)list.innerHTML=recurringPayments.length?recurringPayments.slice().sort((a,b)=>a.nextDate.localeCompare(b.nextDate)).map(p=>recurringHtml(p,true)).join(''):'<div class="empty">Регулярных платежей пока нет. Добавь первый выше.</div>';['recurringNext30Total','dashboardRecurringTotal'].forEach(id=>{const e=document.getElementById(id);if(e)e.textContent=fmt(total)});['recurringNextDue','dashboardRecurringNext'].forEach(id=>{const e=document.getElementById(id);if(e)e.textContent=next});const dash=document.getElementById('dashboardRecurring');if(dash)dash.innerHTML=items.slice(0,3).map(x=>recurringHtml(x,false)).join('')||'<div class="empty">Пока нет запланированных платежей.</div>'}
+function saveRecurring(){localStorage.setItem(RECURRING_KEY,JSON.stringify(recurringPayments));renderRecurring();if(typeof renderAdvisor==='function')renderAdvisor()}
+function resetRecurringForm(){const form=document.getElementById('recurringForm');if(!form)return;form.reset();document.getElementById('recurringId').value='';document.getElementById('recurringNextDate').value=today();document.getElementById('recurringSave').textContent='Сохранить платёж';document.getElementById('recurringCancel').classList.add('hidden')}
+function editRecurring(id){const p=recurringPayments.find(x=>x.id===id);if(!p)return;document.getElementById('recurringId').value=p.id;document.getElementById('recurringTitle').value=p.title;document.getElementById('recurringAmount').value=p.amount;document.getElementById('recurringFrequency').value=p.frequency;document.getElementById('recurringNextDate').value=p.nextDate;document.getElementById('recurringSave').textContent='Сохранить изменения';document.getElementById('recurringCancel').classList.remove('hidden');showView('recurring');document.getElementById('recurringTitle').focus()}
+function deleteRecurring(id){const p=recurringPayments.find(x=>x.id===id);if(!p||!confirm('Удалить регулярный платёж «'+p.title+'»?'))return;recurringPayments=recurringPayments.filter(x=>x.id!==id);saveRecurring()}
+document.getElementById('recurringForm').addEventListener('submit',e=>{e.preventDefault();const id=document.getElementById('recurringId').value,title=document.getElementById('recurringTitle').value.trim(),amount=Number(document.getElementById('recurringAmount').value),nextDate=document.getElementById('recurringNextDate').value;if(!title||!Number.isFinite(amount)||amount<=0||!nextDate)return alert('Проверь название, сумму и дату платежа.');const p={id:id||crypto.randomUUID(),title,amount:moneyRound(amount),frequency:document.getElementById('recurringFrequency').value,nextDate};if(id)recurringPayments=recurringPayments.map(x=>x.id===id?p:x);else recurringPayments.push(p);saveRecurring();resetRecurringForm()});
+function applyDashboardLayout(){const host=document.getElementById('dashboard');if(!host)return;dashboardLayout.order.forEach(id=>{const w=host.querySelector('[data-widget="'+id+'"]');if(w){host.insertBefore(w,document.getElementById('dashboardSettings'));w.hidden=!dashboardLayout.visible[id]}});renderDashboardWidgetControls()}
+function renderDashboardWidgetControls(){const host=document.getElementById('dashboardWidgetControls');if(!host)return;host.innerHTML=dashboardLayout.order.map((id,i)=>{const w=DASHBOARD_WIDGETS.find(x=>x.id===id);return '<div class="widget-control"><label><input type="checkbox" '+(dashboardLayout.visible[id]?'checked':'')+' onchange="setDashboardWidgetVisible(\''+id+'\',this.checked)"><span>'+esc(w.label)+'</span></label><button type="button" '+(i===0?'disabled':'')+' onclick="moveDashboardWidget(\''+id+'\',-1)" aria-label="Переместить выше">↑</button><button type="button" '+(i===dashboardLayout.order.length-1?'disabled':'')+' onclick="moveDashboardWidget(\''+id+'\',1)" aria-label="Переместить ниже">↓</button></div>'}).join('')}
+function saveDashboardLayout(){localStorage.setItem(DASHBOARD_LAYOUT_KEY,JSON.stringify(dashboardLayout));applyDashboardLayout()}
+function setDashboardWidgetVisible(id,v){dashboardLayout.visible[id]=v;saveDashboardLayout()}
+function moveDashboardWidget(id,direction){const i=dashboardLayout.order.indexOf(id),j=i+direction;if(i<0||j<0||j>=dashboardLayout.order.length)return;[dashboardLayout.order[i],dashboardLayout.order[j]]=[dashboardLayout.order[j],dashboardLayout.order[i]];saveDashboardLayout()}
+function toggleDashboardSettings(){const panel=document.getElementById('dashboardSettings'),button=document.getElementById('dashboardSettingsToggle'),open=panel.classList.contains('hidden');panel.classList.toggle('hidden',!open);button.setAttribute('aria-expanded',String(open));button.textContent=open?'Готово':'Настроить панель'}
 function renderDashboard(){
  const m=transactions.filter(t=>monthKey(t.date)===currentMonth()),inc=sum(m,'income'),out=sum(m,'expense');
  animateMoneyValue(document.getElementById('balance'),sum(transactions,'income')-sum(transactions,'expense'));
@@ -871,7 +916,7 @@ function advisorAnswerFor(question){
 }
 function askAdvisor(){const input=document.getElementById('advisorQuestion');document.getElementById('advisorAnswer').textContent=advisorAnswerFor(input.value)}
 function quickAdvisor(topic){document.getElementById('advisorQuestion').value=topic;askAdvisor()}
-function renderAll(){renderDashboard();renderMonthFilter();renderTransactions();renderAnalytics();renderGoals();renderMicroAnalysis();renderAdvisor();if(document.getElementById('search'))runSearch()}
+function renderAll(){applyDashboardLayout();renderDashboard();renderMonthFilter();renderTransactions();renderAnalytics();renderGoals();renderMicroAnalysis();renderRecurring();renderAdvisor();if(document.getElementById('search'))runSearch()}
 function showView(id){document.querySelectorAll('.view').forEach(v=>v.classList.toggle('active',v.id===id));document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('active',b.dataset.view===id));window.scrollTo(0,0)}
 function fillCategories(type,selected){const sel=document.getElementById('txCategory');sel.innerHTML=categories[type].map(c=>`<option>${c}</option>`).join('');if(selected&&categories[type].includes(selected))sel.value=selected}
 function openForm(type){resetForm();document.getElementById('txType').value=type;fillCategories(type);document.getElementById('formHeading').textContent=type==='income'?'Добавить доход':'Добавить расход';showView('add')}
@@ -881,7 +926,7 @@ document.getElementById('txForm').addEventListener('submit',e=>{e.preventDefault
 let transactionsReturnState=null;
 function editTx(id){const t=transactions.find(t=>t.id===id);if(!t)return;transactionsReturnState=captureTransactionsPosition();editingId=id;document.getElementById('txType').value=t.type;fillCategories(t.type,t.category);document.getElementById('txAmount').value=t.amount;document.getElementById('txDate').value=t.date;document.getElementById('txDescription').value=t.description||'';document.getElementById('formHeading').textContent='Редактировать операцию';document.getElementById('cancelEdit').classList.remove('hidden');showView('add')}
 function deleteTx(id){if(confirm('Удалить эту операцию?')){transactions=transactions.filter(t=>t.id!==id);saveData()}}
-function exportData(){const blob=new Blob([JSON.stringify({app:'FinTrack',version:2,exportedAt:new Date().toISOString(),transactions,goals,goalContributions},null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='fintrack-backup.json';a.click();URL.revokeObjectURL(a.href)}
+function exportData(){const blob=new Blob([JSON.stringify({app:'FinTrack',version:3,exportedAt:new Date().toISOString(),transactions,goals,goalContributions,recurringPayments,dashboardLayout},null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='fintrack-backup.json';a.click();URL.revokeObjectURL(a.href)}
 function clearData(){if(confirm('Удалить все операции? Сначала экспортируйте резервную копию, если она нужна.')){transactions=[];saveData()}}
 function normalizeTransactionRef(value){
  return String(value??'').trim().replace(/\s+/g,' ').toLocaleLowerCase('pl-PL');
@@ -1117,6 +1162,7 @@ function resetSearch(){
 
 document.getElementById('microThreshold').addEventListener('input',renderMicroAnalysis);document.getElementById('microPeriod').addEventListener('change',renderMicroAnalysis);
 document.getElementById('txDate').value=today();fillCategories('expense');renderAll();
+resetRecurringForm();
 document.querySelectorAll('[data-chart-period]').forEach(select=>select.addEventListener('change',e=>syncChartPeriod(e.target.value)));
 runSearch();
 if('serviceWorker' in navigator && location.protocol.startsWith('http'))navigator.serviceWorker.register('./sw.js').catch(()=>{});
