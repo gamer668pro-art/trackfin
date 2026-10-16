@@ -505,7 +505,7 @@ let recurringPayments=loadJSON(RECURRING_KEY,[]);
 function loadDashboardLayout(){const saved=loadJSON(DASHBOARD_LAYOUT_KEY,{}),order=Array.isArray(saved.order)?saved.order.filter(id=>DASHBOARD_WIDGETS.some(w=>w.id===id)):[];DASHBOARD_WIDGETS.forEach(w=>{if(!order.includes(w.id))order.push(w.id)});const visible={};DASHBOARD_WIDGETS.forEach(w=>visible[w.id]=saved.visible?.[w.id]!==false);return {order,visible}}
 let dashboardLayout=loadDashboardLayout();
 const fmt=n=>new Intl.NumberFormat('pl-PL',{style:'currency',currency:'PLN'}).format(n);
-const today=()=>new Date().toISOString().slice(0,10);
+const today=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')};
 const monthKey=d=>String(d||'').slice(0,7);
 const monthLabel=key=>{const [y,m]=key.split('-').map(Number);return new Date(y,m-1,1).toLocaleDateString('ru-RU',{month:'short'});};
 function loadData(){try{return JSON.parse(localStorage.getItem(KEY)||'[]')}catch{return []}}
