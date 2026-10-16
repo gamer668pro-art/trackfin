@@ -17,7 +17,7 @@ header{display:flex;justify-content:space-between;align-items:center;padding:18p
 .actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:14px 0 22px}button,.file-button{font:inherit;border:0;border-radius:13px;padding:13px 14px;background:var(--panel2);color:var(--text);cursor:pointer}.primary{background:var(--accent);color:#171321;font-weight:700}.action-income{border:1px solid #326b50}.action-expense{border:1px solid #704040}
 .section-head{display:flex;justify-content:space-between;align-items:center;margin:22px 2px 12px}.section-head h2{margin:0}.transaction{display:flex;align-items:center;gap:12px;padding:13px 0;border-bottom:1px solid var(--line)}.transaction:last-child{border-bottom:0}.tx-icon{width:42px;height:42px;display:grid;place-items:center;border-radius:14px;background:var(--panel2);font-size:18px}.tx-info{flex:1;min-width:0}.tx-title{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.tx-sub{font-size:12px;color:var(--muted);margin-top:4px}.tx-amount{font-weight:700;white-space:nowrap}.empty{color:var(--muted);font-size:14px;padding:20px 0;text-align:center}
 .bar-chart{height:140px;display:flex;align-items:end;gap:8px;padding:12px 2px 0}.bar-col{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:end;height:100%;gap:7px;min-width:0}.bar{width:min(28px,80%);min-height:3px;border-radius:7px 7px 3px 3px;background:var(--accent)}.bar-label{font-size:10px;color:var(--muted)}.category-row{display:flex;align-items:center;gap:10px;margin:13px 0}.category-name{flex:1;font-size:13px}.track{height:7px;background:var(--panel2);border-radius:10px;flex:1;overflow:hidden}.fill{height:100%;background:var(--accent);border-radius:10px}.category-value{font-size:12px;color:var(--muted);min-width:72px;text-align:right}
-nav{position:fixed;z-index:5;bottom:0;left:0;right:0;padding:10px 18px calc(10px + env(safe-area-inset-bottom));background:#101114ee;backdrop-filter:blur(18px);border-top:1px solid var(--line);display:flex;justify-content:space-around;max-width:760px;margin:auto;gap:2px}nav button{background:transparent;color:var(--muted);padding:7px 5px;font-size:11px;flex:1;min-width:0;touch-action:pan-y;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;transition:transform .12s,background .12s}nav button.active{color:var(--accent)}nav button.nav-dragging{opacity:.72;transform:scale(.94);background:var(--panel2);border-radius:12px;z-index:2}nav button.nav-drop-target{outline:1px dashed var(--accent);outline-offset:-2px}
+nav{position:fixed;z-index:5;bottom:0;left:0;right:0;padding:10px 18px calc(10px + env(safe-area-inset-bottom));background:#101114ee;backdrop-filter:blur(18px);border-top:1px solid var(--line);display:flex;justify-content:space-around;max-width:760px;margin:auto;gap:2px}nav button{background:transparent;color:var(--muted);padding:7px 5px;font-size:11px;flex:1;min-width:0;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;transition:transform .12s,background .12s}nav button.active{color:var(--accent)}nav button.nav-dragging{opacity:.72;transform:scale(.94);background:var(--panel2);border-radius:12px;z-index:2}nav button.nav-drop-target{outline:1px dashed var(--accent);outline-offset:-2px}
 .view{display:none}.view.active{display:block}.field{display:flex;flex-direction:column;gap:7px;margin:12px 0}.field label{font-size:13px;color:var(--muted)}input,select{width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:13px;color:var(--text);font:inherit}form .primary{width:100%;margin-top:8px}.filters{display:flex;gap:8px;margin-bottom:12px}.filters select{flex:1;min-width:0;padding:10px;font-size:13px}.notice{border:1px solid #594d2d;background:#242116;border-radius:14px;padding:12px 13px;font-size:12px;line-height:1.5;color:#e8d9a8;margin-bottom:14px}.small-button{padding:8px 10px;font-size:12px}.settings-row{padding:14px 0;border-bottom:1px solid var(--line)}.settings-row:last-child{border:0}.settings-row strong{display:block;margin-bottom:5px}.settings-row p{font-size:13px;color:var(--muted);margin:0 0 10px}.danger{color:var(--red)}.hidden{display:none!important}
 @media(min-width:600px){body{padding-inline:24px}.balance{font-size:40px}}
 
@@ -920,7 +920,55 @@ function quickAdvisor(topic){document.getElementById('advisorQuestion').value=to
 function renderAll(){applyDashboardLayout();renderDashboard();renderMonthFilter();renderTransactions();renderAnalytics();renderGoals();renderMicroAnalysis();renderRecurring();renderAdvisor();if(document.getElementById('search'))runSearch()}
 function applyNavOrder(){const nav=document.querySelector('nav');if(!nav)return;const buttons=[...nav.querySelectorAll('button[data-view]')],saved=loadJSON(NAV_ORDER_KEY,[]),valid=saved.filter(id=>buttons.some(b=>b.dataset.view===id));buttons.forEach(b=>{if(!valid.includes(b.dataset.view))valid.push(b.dataset.view)});valid.forEach(id=>{const button=buttons.find(b=>b.dataset.view===id);if(button)nav.appendChild(button)})}
 function saveNavOrder(){localStorage.setItem(NAV_ORDER_KEY,JSON.stringify([...document.querySelectorAll('nav button[data-view]')].map(b=>b.dataset.view)))}
-function enableNavLongPressReorder(){const nav=document.querySelector('nav');if(!nav)return;let timer=null,pressed=null,dragging=false,moved=false,suppressClick=false,startX=0,startY=0,pointerId=null;const clear=()=>{if(timer)clearTimeout(timer);timer=null};const cleanup=()=>{clear();if(pressed)pressed.classList.remove('nav-dragging');nav.querySelectorAll('.nav-drop-target').forEach(b=>b.classList.remove('nav-drop-target'));pressed=null;dragging=false;moved=false;pointerId=null};nav.addEventListener('pointerdown',e=>{const button=e.target.closest('button[data-view]');if(!button||e.button!==0)return;clear();pressed=button;pointerId=e.pointerId;startX=e.clientX;startY=e.clientY;moved=false;timer=setTimeout(()=>{if(!pressed)return;dragging=true;pressed.classList.add('nav-dragging');if(navigator.vibrate)navigator.vibrate(18)},350)});nav.addEventListener('pointermove',e=>{if(!pressed||e.pointerId!==pointerId)return;const dx=e.clientX-startX,dy=e.clientY-startY;if(!dragging&&(Math.abs(dx)>10||Math.abs(dy)>10)){clear();if(Math.abs(dy)>Math.abs(dx)){pressed=null;pointerId=null;return}}if(!dragging)return;e.preventDefault();const target=document.elementFromPoint(e.clientX,e.clientY)?.closest('nav button[data-view]');nav.querySelectorAll('.nav-drop-target').forEach(b=>b.classList.remove('nav-drop-target'));if(!target||target===pressed)return;target.classList.add('nav-drop-target');const r=target.getBoundingClientRect();nav.insertBefore(pressed,e.clientX<r.left+r.width/2?target:target.nextSibling);moved=true});const finish=e=>{if(!pressed||e.pointerId!==pointerId)return;clear();const wasDragging=dragging;if(wasDragging){saveNavOrder();suppressClick=true;e.preventDefault()}cleanup()};nav.addEventListener('pointerup',finish);nav.addEventListener('pointercancel',cleanup);nav.addEventListener('lostpointercapture',()=>{if(!dragging)cleanup()});nav.addEventListener('click',e=>{if(suppressClick||dragging){e.preventDefault();e.stopPropagation();suppressClick=false;moved=false}},true);applyNavOrder()}
+function enableNavLongPressReorder(){
+ const nav=document.querySelector('nav');
+ if(!nav)return;
+ let timer=null,pressed=null,dragging=false,suppressClick=false,startX=0,startY=0,pointerId=null;
+ const clearTimer=()=>{if(timer!==null){clearTimeout(timer);timer=null}};
+ const clearTargets=()=>nav.querySelectorAll('.nav-drop-target').forEach(b=>b.classList.remove('nav-drop-target'));
+ const cleanup=()=>{clearTimer();if(pressed)pressed.classList.remove('nav-dragging');clearTargets();pressed=null;dragging=false;pointerId=null};
+ nav.addEventListener('contextmenu',e=>{if(e.target.closest('button[data-view]'))e.preventDefault()});
+ nav.addEventListener('pointerdown',e=>{
+  const button=e.target.closest('button[data-view]');
+  if(!button||e.button!==0)return;
+  cleanup();pressed=button;pointerId=e.pointerId;startX=e.clientX;startY=e.clientY;
+  timer=setTimeout(()=>{
+   if(!pressed)return;
+   dragging=true;pressed.classList.add('nav-dragging');
+   try{pressed.setPointerCapture(pointerId)}catch{}
+   if(navigator.vibrate)navigator.vibrate(18);
+  },450);
+ });
+ nav.addEventListener('pointermove',e=>{
+  if(!pressed||e.pointerId!==pointerId)return;
+  const dx=e.clientX-startX,dy=e.clientY-startY;
+  if(!dragging){
+   if(Math.abs(dx)>18||Math.abs(dy)>18){
+    if(Math.abs(dy)>Math.abs(dx)){cleanup();return}
+    clearTimer();
+   }
+   return;
+  }
+  e.preventDefault();
+  const target=document.elementFromPoint(e.clientX,e.clientY)?.closest('nav button[data-view]');
+  clearTargets();
+  if(!target||target===pressed)return;
+  target.classList.add('nav-drop-target');
+  const rect=target.getBoundingClientRect();
+  nav.insertBefore(pressed,e.clientX<rect.left+rect.width/2?target:target.nextSibling);
+ });
+ const finish=e=>{
+  if(!pressed||e.pointerId!==pointerId)return;
+  clearTimer();const didDrag=dragging;
+  if(didDrag){saveNavOrder();suppressClick=true;e.preventDefault();setTimeout(()=>{suppressClick=false},500)}
+  cleanup();
+ };
+ nav.addEventListener('pointerup',finish);
+ nav.addEventListener('pointercancel',()=>{if(dragging)saveNavOrder();cleanup()});
+ nav.addEventListener('lostpointercapture',()=>{if(pressed){if(dragging)saveNavOrder();cleanup()}});
+ nav.addEventListener('click',e=>{if(suppressClick){e.preventDefault();e.stopPropagation();suppressClick=false}},true);
+ applyNavOrder();
+}
 function showView(id){document.querySelectorAll('.view').forEach(v=>v.classList.toggle('active',v.id===id));document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('active',b.dataset.view===id));window.scrollTo(0,0)}
 function fillCategories(type,selected){const sel=document.getElementById('txCategory');sel.innerHTML=categories[type].map(c=>`<option>${c}</option>`).join('');if(selected&&categories[type].includes(selected))sel.value=selected}
 function openForm(type){resetForm();document.getElementById('txType').value=type;fillCategories(type);document.getElementById('formHeading').textContent=type==='income'?'Добавить доход':'Добавить расход';showView('add')}
