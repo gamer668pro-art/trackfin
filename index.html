@@ -493,7 +493,6 @@ nav button.active,nav button[aria-current="page"]{
 <button data-view="search" onclick="showView('search')">Поиск</button>
 <button data-view="settings" onclick="showView('settings')">Настройки</button>
 </nav>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 <script>
 const KEY='fintrack_transactions_v1';
 const RECURRING_KEY='fintrack_recurring_payments_v1';
@@ -1177,10 +1176,24 @@ function parseBankDate(raw){
  m=clean.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{4})$/);if(m)return `${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`;
  return '';
 }
+let pdfJsLoadPromise=null;
+function ensurePdfJsLoaded(){
+ if(window.pdfjsLib)return Promise.resolve(window.pdfjsLib);
+ if(pdfJsLoadPromise)return pdfJsLoadPromise;
+ pdfJsLoadPromise=new Promise((resolve,reject)=>{
+  const script=document.createElement('script');
+  script.src='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+  script.crossOrigin='anonymous';script.referrerPolicy='no-referrer';
+  script.onload=()=>window.pdfjsLib?resolve(window.pdfjsLib):reject(new Error('PDF.js загрузился без доступного API.'));
+  script.onerror=()=>reject(new Error('Не удалось загрузить модуль чтения PDF. Проверьте подключение к интернету.'));
+  document.head.appendChild(script);
+ }).catch(error=>{pdfJsLoadPromise=null;throw error});
+ return pdfJsLoadPromise;
+}
 function importPDF(event){
  const file=event.target.files?.[0];if(!file)return;
- if(!window.pdfjsLib){alert('Не удалось загрузить модуль чтения PDF. Проверьте подключение к интернету и обновите страницу.');event.target.value='';return;}
  (async()=>{try{
+  const pdfjsLib=await ensurePdfJsLoaded();
   pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
   const bytes=await file.arrayBuffer();
   const pdf=await pdfjsLib.getDocument({data:bytes, disableWorker:true, useSystemFonts:true}).promise;
