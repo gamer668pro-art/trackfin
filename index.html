@@ -253,7 +253,7 @@ nav button.active,nav button[aria-current="page"]{
 .dashboard-widget.widget-reorder-animating{transition:transform .18s cubic-bezier(.2,.8,.2,1);will-change:transform}
 .dashboard-widget.widget-drop-before{border-top:3px solid var(--accent);padding-top:6px}
 .dashboard-widget.widget-drop-after{border-bottom:3px solid var(--accent);padding-bottom:6px}
-@media(prefers-reduced-motion:reduce){.dashboard-widget.widget-dragging{transition:none}}
+@media(prefers-reduced-motion:reduce){.dashboard-widget.widget-dragging,.dashboard-widget.widget-reorder-animating{transition:none!important;animation:none!important;scroll-behavior:auto!important}}
 </style>
 </head>
 <body>
