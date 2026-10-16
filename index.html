@@ -664,16 +664,18 @@ function enableDashboardWidgetReorder(){
   handle.textContent='↕ Зажми и перемести';
   handle.setAttribute('aria-label','Зажмите и переместите блок вверх или вниз');
   handle.title='Зажмите и переместите блок вверх или вниз';
+  handle.style.touchAction='none';
   widget.insertBefore(handle,widget.firstChild);
  });
- let pressed=null,pointerId=null;
+ let pressed=null,dragMode=null,startY=0,lastY=0,moved=false;
  const clearMarks=()=>widgets().forEach(el=>el.classList.remove('widget-drop-before','widget-drop-after'));
  const cleanup=()=>{
   if(pressed)pressed.classList.remove('widget-dragging');
-  clearMarks();pressed=null;pointerId=null;
+  clearMarks();pressed=null;dragMode=null;moved=false;
  };
  const moveAt=y=>{
   if(!pressed)return;
+  lastY=y;
   const others=widgets().filter(el=>el!==pressed);
   clearMarks();
   let insertBefore=null;
@@ -684,32 +686,58 @@ function enableDashboardWidgetReorder(){
   if(insertBefore)host.insertBefore(pressed,insertBefore);
   else host.appendChild(pressed);
   if(!insertBefore){
-   const last=others[others.length-1];
+   const last=widgets().filter(el=>el!==pressed).slice(-1)[0];
    if(last)last.classList.add('widget-drop-after');
   }
  };
- host.addEventListener('pointerdown',e=>{
-  const handle=e.target.closest('.dashboard-drag-handle');
-  if(!handle|| (e.pointerType==='mouse'&&e.button!==0))return;
-  const widget=handle.closest('.dashboard-widget[data-widget]');
+ const begin=(widget,mode,y)=>{
   if(!widget)return;
-  e.preventDefault();
-  cleanup();pressed=widget;pointerId=e.pointerId;
+  cleanup();pressed=widget;dragMode=mode;startY=y;lastY=y;moved=false;
   pressed.classList.add('widget-dragging');
-  try{handle.setPointerCapture(e.pointerId)}catch{}
- });
- document.addEventListener('pointermove',e=>{
-  if(!pressed||e.pointerId!==pointerId)return;
-  e.preventDefault();moveAt(e.clientY);
- },{passive:false});
- const finish=e=>{
-  if(!pressed|| (e&&e.pointerId!==pointerId))return;
-  saveDashboardWidgetOrderFromDOM();cleanup();
  };
- document.addEventListener('pointerup',finish);
- document.addEventListener('pointercancel',finish);
- document.addEventListener('lostpointercapture',e=>{
-  if(pressed&&e.pointerId===pointerId)finish(e);
+ const move=(y,prevent)=>{
+  if(!pressed)return;
+  if(Math.abs(y-startY)>3)moved=true;
+  if(moved){if(prevent)prevent();moveAt(y);}
+ };
+ const finish=()=>{
+  if(!pressed)return;
+  if(moved)saveDashboardWidgetOrderFromDOM();
+  cleanup();
+ };
+ // iOS Safari: use native touch events instead of Pointer Capture, which can be
+ // cancelled when the captured button/widget is moved in the DOM.
+ host.addEventListener('touchstart',e=>{
+  const handle=e.target.closest('.dashboard-drag-handle');
+  if(!handle||!e.changedTouches.length)return;
+  begin(handle.closest('.dashboard-widget[data-widget]'),'touch',e.changedTouches[0].clientY);
+  e.preventDefault();
+ },{passive:false});
+ document.addEventListener('touchmove',e=>{
+  if(!pressed||dragMode!=='touch'||!e.touches.length)return;
+  move(e.touches[0].clientY,()=>e.preventDefault());
+ },{passive:false});
+ document.addEventListener('touchend',e=>{
+  if(!pressed||dragMode!=='touch')return;
+  if(moved)saveDashboardWidgetOrderFromDOM();
+  cleanup();
+ },{passive:true});
+ document.addEventListener('touchcancel',()=>{
+  if(pressed&&dragMode==='touch')finish();
+ },{passive:true});
+ // Mouse support for desktop.
+ host.addEventListener('mousedown',e=>{
+  const handle=e.target.closest('.dashboard-drag-handle');
+  if(!handle||e.button!==0)return;
+  begin(handle.closest('.dashboard-widget[data-widget]'),'mouse',e.clientY);
+  e.preventDefault();
+ });
+ document.addEventListener('mousemove',e=>{
+  if(!pressed||dragMode!=='mouse')return;
+  move(e.clientY,()=>e.preventDefault());
+ });
+ document.addEventListener('mouseup',()=>{
+  if(pressed&&dragMode==='mouse')finish();
  });
 }
 function renderDashboard(){
