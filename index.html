@@ -245,12 +245,13 @@ nav button.active,nav button[aria-current="page"]{
 @media(prefers-reduced-motion:reduce){.line-chart .series-line{stroke-dasharray:none;stroke-dashoffset:0;animation:none}.category-row,.category-row .fill{animation:none;transform:none}.chart-tooltip{transition:none}}
 
 .chart-period-label{display:inline-flex;align-items:center;gap:6px;color:var(--muted);flex-shrink:0}.chart-period{max-width:118px;padding:7px 9px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--text);font:inherit;font-size:12px;cursor:pointer}.chart-period:focus-visible{outline:2px solid var(--accent);outline-offset:2px}@media(max-width:480px){.chart-period{max-width:108px;padding:7px 6px}.chart-period-label{gap:4px}}.dashboard-custom-head{display:flex;justify-content:flex-end;margin:0 0 10px}.dashboard-widget[hidden]{display:none}.widget-control{display:grid;grid-template-columns:1fr auto auto;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid var(--line)}.widget-control:last-child{border-bottom:0}.widget-control label{display:flex;align-items:center;gap:8px;font-size:14px}.widget-control input{accent-color:var(--accent);width:18px;height:18px}.widget-control button{padding:8px 10px;font-size:12px}.recurring-item{display:flex;align-items:flex-start;gap:12px;padding:14px 0;border-bottom:1px solid var(--line)}.recurring-item:last-child{border-bottom:0}.recurring-main{flex:1;min-width:0}.recurring-title{font-weight:650}.recurring-meta{font-size:12px;color:var(--muted);margin-top:5px;line-height:1.45}.recurring-amount{font-weight:700;white-space:nowrap}.recurring-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:9px}.recurring-actions button{font-size:12px;padding:8px 10px}.field-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.field-grid .field{min-width:0}@media(max-width:420px){.field-grid{grid-template-columns:1fr}}
-/* Drag dashboard blocks with a long press */
-.dashboard-widget{position:relative;touch-action:pan-y;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
-.dashboard-widget.widget-dragging{opacity:.68;transform:scale(.985);outline:1px dashed var(--accent);outline-offset:3px;z-index:3}
-.dashboard-widget.widget-drop-before{border-top:2px solid var(--accent);padding-top:8px}
-.dashboard-widget.widget-drop-after{border-bottom:2px solid var(--accent);padding-bottom:8px}
-.dashboard-drag-hint{font-size:11px;color:var(--muted);text-align:right;margin:0 2px 8px}
+/* Dashboard reorder handle: dedicated touch target */
+.dashboard-widget{position:relative}
+.dashboard-drag-handle{display:flex;align-items:center;justify-content:center;gap:6px;width:max-content;max-width:100%;margin:0 0 7px auto;padding:6px 10px;border:1px solid var(--line);border-radius:9px;background:var(--card);color:var(--muted);font:inherit;font-size:11px;cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+.dashboard-drag-handle:active{cursor:grabbing}
+.dashboard-widget.widget-dragging{opacity:.68;outline:2px dashed var(--accent);outline-offset:2px;z-index:3}
+.dashboard-widget.widget-drop-before{border-top:3px solid var(--accent);padding-top:6px}
+.dashboard-widget.widget-drop-after{border-bottom:3px solid var(--accent);padding-bottom:6px}
 @media(prefers-reduced-motion:reduce){.dashboard-widget.widget-dragging{transition:none}}
 </style>
 </head>
@@ -643,33 +644,43 @@ function saveDashboardWidgetOrderFromDOM(){
  localStorage.setItem(DASHBOARD_LAYOUT_KEY,JSON.stringify(dashboardLayout));
  renderDashboardWidgetControls();
 }
+function saveDashboardWidgetOrderFromDOM(){
+ const host=document.getElementById('dashboard');
+ if(!host)return;
+ const visibleOrder=[...host.querySelectorAll(':scope > .dashboard-widget[data-widget]')].map(el=>el.dataset.widget);
+ dashboardLayout.order=[...visibleOrder,...dashboardLayout.order.filter(id=>!visibleOrder.includes(id))];
+ localStorage.setItem(DASHBOARD_LAYOUT_KEY,JSON.stringify(dashboardLayout));
+ renderDashboardWidgetControls();
+}
 function enableDashboardWidgetReorder(){
  const host=document.getElementById('dashboard');
  if(!host||host.dataset.dragReorderReady==='1')return;
  host.dataset.dragReorderReady='1';
- let timer=null,pressed=null,dragging=false,pointerId=null,startX=0,startY=0;
- const clearTimer=()=>{if(timer!==null){clearTimeout(timer);timer=null}};
+ host.querySelectorAll(':scope > .dashboard-widget[data-widget]').forEach(widget=>{
+  if(widget.querySelector('.dashboard-drag-handle'))return;
+  const handle=document.createElement('button');
+  handle.type='button';handle.className='dashboard-drag-handle';
+  handle.textContent='↕ Переместить блок';
+  handle.setAttribute('aria-label','Зажмите и перетащите блок вверх или вниз');
+  handle.title='Зажмите и перетащите блок вверх или вниз';
+  widget.insertBefore(handle,widget.firstChild);
+ });
+ let pressed=null,dragging=false,pointerId=null,offsetY=0;
  const clearMarks=()=>host.querySelectorAll('.widget-drop-before,.widget-drop-after').forEach(el=>el.classList.remove('widget-drop-before','widget-drop-after'));
- const cleanup=()=>{clearTimer();if(pressed)pressed.classList.remove('widget-dragging');clearMarks();pressed=null;dragging=false;pointerId=null};
- host.addEventListener('contextmenu',e=>{if(e.target.closest('.dashboard-widget'))e.preventDefault()});
+ const cleanup=()=>{if(pressed)pressed.classList.remove('widget-dragging');clearMarks();pressed=null;dragging=false;pointerId=null};
  host.addEventListener('pointerdown',e=>{
-  const widget=e.target.closest('.dashboard-widget[data-widget]');
-  if(!widget||e.button!==0||e.target.closest('button,input,select,textarea,a,label'))return;
-  cleanup();pressed=widget;pointerId=e.pointerId;startX=e.clientX;startY=e.clientY;
-  timer=setTimeout(()=>{
-   if(!pressed)return;
-   dragging=true;pressed.classList.add('widget-dragging');
-   try{pressed.setPointerCapture(pointerId)}catch{}
-   if(navigator.vibrate)navigator.vibrate(18);
-  },450);
+  const handle=e.target.closest('.dashboard-drag-handle');
+  if(!handle||e.button!==0)return;
+  const widget=handle.closest('.dashboard-widget[data-widget]');
+  if(!widget)return;
+  e.preventDefault();cleanup();pressed=widget;pointerId=e.pointerId;dragging=true;
+  const rect=widget.getBoundingClientRect();offsetY=e.clientY-rect.top;
+  widget.classList.add('widget-dragging');
+  try{handle.setPointerCapture(pointerId)}catch{}
+  if(navigator.vibrate)navigator.vibrate(15);
  });
  host.addEventListener('pointermove',e=>{
-  if(!pressed||e.pointerId!==pointerId)return;
-  const dx=e.clientX-startX,dy=e.clientY-startY;
-  if(!dragging){
-   if(Math.abs(dx)>16||Math.abs(dy)>16){clearTimer();if(Math.abs(dy)>Math.abs(dx))cleanup()}
-   return;
-  }
+  if(!pressed||e.pointerId!==pointerId||!dragging)return;
   e.preventDefault();
   const target=document.elementFromPoint(e.clientX,e.clientY)?.closest('#dashboard > .dashboard-widget[data-widget]');
   clearMarks();
@@ -681,9 +692,7 @@ function enableDashboardWidgetReorder(){
  });
  const finish=e=>{
   if(!pressed||e.pointerId!==pointerId)return;
-  const didDrag=dragging;clearTimer();
-  if(didDrag){saveDashboardWidgetOrderFromDOM();e.preventDefault()}
-  cleanup();
+  e.preventDefault();saveDashboardWidgetOrderFromDOM();cleanup();
  };
  host.addEventListener('pointerup',finish);
  host.addEventListener('pointercancel',()=>{if(dragging)saveDashboardWidgetOrderFromDOM();cleanup()});
